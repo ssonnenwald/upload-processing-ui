@@ -1,0 +1,48 @@
+name: CI
+
+# Runs on every pull request, and on direct pushes to main.
+# Change `main` to `master` below if that is your default branch.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test-lint:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Match the Node version used locally. Angular 21 needs 20.11+ or
+          # 22.11+. If your machine runs Node 20, change this to '20'.
+          node-version: '24.14.1'
+          # Caches ~/.npm keyed on package-lock.json so installs are fast.
+          cache: 'npm'
+
+      - name: Install dependencies
+        # `npm ci` installs exactly what package-lock.json pins — reproducible,
+        # and faster than `npm install`. Fails if lockfile and package.json
+        # have drifted, which is a useful check in itself.
+        run: npm ci
+
+      - name: Lint
+        # angular-eslint + typescript-eslint + the NgRx SignalStore rules.
+        run: npm run lint
+
+      - name: Test
+        # `ng test` defaults to watch mode; CI must run once and exit with a
+        # status code. The unit-test builder takes --watch=false.
+        run: npm test -- --watch=false
+
+      # --- Optional: code coverage --------------------------------------------
+      # @vitest/coverage-v8 is already a devDependency from the Vitest
+      # migration. To collect coverage, replace the Test step above with:
+      #   run: npm test -- --watch=false --coverage
+      # To later GATE on a threshold, configure coverage.thresholds in the
+      # Vitest config — the run then fails on its own when coverage drops.

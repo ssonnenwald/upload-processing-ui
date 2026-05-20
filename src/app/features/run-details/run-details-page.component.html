@@ -1,0 +1,42 @@
+<div class="details">
+  <header class="details__header">
+    <div>
+      <button mat-button routerLink="/runs">
+        <mat-icon>arrow_back</mat-icon>
+        All runs
+      </button>
+      <h1>Run details</h1>
+    </div>
+    @if (run.snapshot(); as r) {
+      @if (!run.isTerminal()) {
+        <a
+          mat-flat-button
+          color="primary"
+          [routerLink]="['/runs', r.runId, 'watch']"
+        >
+          <mat-icon>visibility</mat-icon>
+          Watch live
+        </a>
+      }
+    }
+  </header>
+
+  @if (run.loading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (run.error(); as err) {
+    <mat-card appearance="outlined" class="details__error">
+      <mat-card-content>
+        <mat-icon>error</mat-icon>
+        <span>{{ err }}</span>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (run.snapshot(); as r) {
+    <app-run-summary-card [run]="r" />
+    <app-chunks-table [chunks]="r.chunks" />
+    <app-chunk-timeline [chunks]="r.chunks" />
+  }
+</div>

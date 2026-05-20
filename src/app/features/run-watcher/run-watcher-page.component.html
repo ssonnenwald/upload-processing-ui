@@ -1,0 +1,51 @@
+<div class="watcher">
+  <header class="watcher__header">
+    <div>
+      <button mat-button routerLink="/runs">
+        <mat-icon>arrow_back</mat-icon>
+        All runs
+      </button>
+      <h1>Live run</h1>
+    </div>
+    <div class="watcher__header-actions">
+      @if (run.snapshot(); as r) {
+        <a mat-stroked-button [routerLink]="['/runs', r.runId]">
+          <mat-icon>open_in_new</mat-icon>
+          Full details
+        </a>
+      }
+    </div>
+  </header>
+
+  @if (run.loading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (run.error(); as err) {
+    <mat-card appearance="outlined" class="watcher__error">
+      <mat-card-content>
+        <mat-icon>error</mat-icon>
+        <span>{{ err }}</span>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (run.snapshot(); as r) {
+    <div
+      class="watcher__status-banner"
+      [class.is-terminal]="run.isTerminal()"
+      [class.is-reconnecting]="hubState() === 'reconnecting'"
+      role="status"
+      aria-live="polite"
+    >
+      <mat-icon class="watcher__status-icon">
+        {{ run.isTerminal() ? 'check_circle' : (hubState() === 'reconnecting' ? 'sync_problem' : 'sync') }}
+      </mat-icon>
+      <span>{{ statusMessage() }}</span>
+    </div>
+
+    <app-run-summary-card [run]="r" />
+
+    <app-chunks-table [chunks]="r.chunks" />
+  }
+</div>

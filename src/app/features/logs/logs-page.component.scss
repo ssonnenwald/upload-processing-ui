@@ -1,0 +1,246 @@
+.logs-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--up-space-4);
+}
+
+.logs-page__header h1 {
+  margin: 0 0 var(--up-space-1);
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.logs-page__subtitle {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14px;
+}
+
+/* --- Filter controls ----------------------------------------------------- */
+
+.logs-page__filters mat-card-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--up-space-3);
+  padding-top: var(--up-space-3);
+}
+
+.logs-page__filters mat-form-field {
+  width: 220px;
+}
+
+.logs-page__runid {
+  /* The run-id field is free text — give it room. */
+  flex: 1 1 280px;
+  min-width: 280px;
+}
+
+.logs-page__load-btn {
+  /* Align the button with the form fields rather than their hint text. */
+  margin-top: var(--up-space-1);
+  height: 56px;
+}
+
+/* --- Notices (error / info / empty) -------------------------------------- */
+
+.logs-page__notice mat-card-content {
+  display: flex;
+  align-items: center;
+  gap: var(--up-space-2);
+  padding: var(--up-space-3);
+}
+
+.logs-page__notice mat-icon {
+  color: var(--mat-sys-on-surface-variant);
+  flex-shrink: 0;
+}
+
+.logs-page__notice button {
+  margin-left: auto;
+}
+
+.logs-page__notice--error {
+  border-color: var(--up-status-failed, #d32f2f);
+}
+
+.logs-page__notice--error mat-icon {
+  color: var(--up-status-failed, #d32f2f);
+}
+
+/* --- Results ------------------------------------------------------------- */
+
+.logs-page__results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--up-space-3);
+}
+
+.logs-page__results-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--up-space-3);
+  flex-wrap: wrap;
+}
+
+.logs-page__results-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.logs-page__count {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 13px;
+}
+
+.logs-page__summary {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.logs-page__hint {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14px;
+}
+
+/* --- Stream panels ------------------------------------------------------- */
+
+.logs-page__stream-name {
+  font-family: var(
+    --up-font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "Consolas",
+    monospace
+  );
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.logs-page__stream-empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 13px;
+}
+
+/* --- Event lines --------------------------------------------------------- */
+
+.logs-page__events {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--up-radius-1, 4px);
+  overflow: hidden;
+}
+
+.logs-page__event {
+  display: flex;
+  gap: var(--up-space-2);
+  padding: var(--up-space-2) var(--up-space-3);
+  border-left: 3px solid transparent;
+}
+
+.logs-page__event:not(:last-child) {
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+/*
+ * Severity tint via a left border + label colour. The data-severity attribute
+ * is the lower-cased severity string, so one rule per value drives the colour —
+ * the same approach the StatusBadgeComponent uses for run statuses.
+ */
+.logs-page__event[data-severity="error"],
+.logs-page__event[data-severity="critical"] {
+  border-left-color: var(--up-status-failed, #d32f2f);
+  background: color-mix(
+    in srgb,
+    var(--up-status-failed, #d32f2f) 6%,
+    transparent
+  );
+}
+
+.logs-page__event[data-severity="warning"] {
+  border-left-color: var(--up-status-completedwitherrors, #f9a825);
+  background: color-mix(
+    in srgb,
+    var(--up-status-completedwitherrors, #f9a825) 6%,
+    transparent
+  );
+}
+
+.logs-page__event[data-severity="success"] {
+  border-left-color: var(--up-status-completed, #2e7d32);
+}
+
+.logs-page__event[data-severity="runtime"] {
+  border-left-color: var(--mat-sys-outline-variant);
+}
+
+.logs-page__event-sev {
+  flex: 0 0 84px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--mat-sys-on-surface-variant);
+  padding-top: 2px;
+}
+
+.logs-page__event[data-severity="error"] .logs-page__event-sev,
+.logs-page__event[data-severity="critical"] .logs-page__event-sev {
+  color: var(--up-status-failed, #d32f2f);
+}
+
+.logs-page__event[data-severity="warning"] .logs-page__event-sev {
+  color: var(--up-status-completedwitherrors, #f9a825);
+}
+
+.logs-page__event-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logs-page__event-ts {
+  font-family: var(
+    --up-font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "Consolas",
+    monospace
+  );
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.logs-page__event-text {
+  font-family: var(
+    --up-font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "Consolas",
+    monospace
+  );
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Narrow screens: stack the severity label above the body. */
+@media (max-width: 720px) {
+  .logs-page__event {
+    flex-direction: column;
+    gap: var(--up-space-1);
+  }
+
+  .logs-page__event-sev {
+    flex-basis: auto;
+  }
+}

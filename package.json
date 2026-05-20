@@ -1,0 +1,49 @@
+{
+  "name": "upload-processing-ui",
+  "version": "1.0.0",
+  "description": "Admin UI for the UploadProcessing pipeline — file uploads, run history, and live run progress via SignalR.",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "test:coverage": "ng test --coverage",
+    "lint": "ng lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "^21.0.0",
+    "@angular/cdk": "^21.0.0",
+    "@angular/common": "^21.0.0",
+    "@angular/compiler": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "@angular/forms": "^21.0.0",
+    "@angular/material": "^21.0.0",
+    "@angular/platform-browser": "^21.0.0",
+    "@angular/router": "^21.0.0",
+    "@microsoft/signalr": "^8.0.7",
+    "@ngrx/operators": "^21.0.0",
+    "@ngrx/signals": "^21.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.6.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.0.0",
+    "@angular/cli": "^21.0.0",
+    "@angular/compiler-cli": "^21.0.0",
+    "@eslint/js": "^10.0.1",
+    "@ngrx/eslint-plugin": "^21.1.0",
+    "@vitest/coverage-v8": "^4.0.0",
+    "angular-eslint": "21.4.0",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "happy-dom": "^20.0.0",
+    "prettier": "^3.8.3",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "8.59.2",
+    "vitest": "^4.0.0"
+  }
+}

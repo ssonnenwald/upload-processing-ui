@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # --- npm dependencies ------------------------------------------------------
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    # Cap concurrent PRs so a quiet week doesn't open a dozen at once.
+    open-pull-requests-limit: 5
+    # Group related packages into a single PR instead of one per package.
+    # The Angular framework moves in lockstep — 15+ @angular/* packages
+    # bumping separately would be 15 PRs for one logical update.
+    groups:
+      angular:
+        patterns:
+          - '@angular/*'
+          - '@angular-eslint/*'
+          - 'angular-eslint'
+      ngrx:
+        patterns:
+          - '@ngrx/*'
+      eslint:
+        patterns:
+          - 'eslint'
+          - '@eslint/*'
+          - 'typescript-eslint'
+          - 'eslint-config-prettier'
+      vitest:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - 'happy-dom'
+    # TypeScript tracks the Angular-supported range; let major bumps be
+    # deliberate rather than automatic.
+    ignore:
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+
+  # --- GitHub Actions versions ----------------------------------------------
+  # Keeps actions/checkout, actions/setup-node, etc. in ci.yml up to date.
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday

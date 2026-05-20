@@ -1,0 +1,58 @@
+:host {
+  display: block;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--up-space-2);
+}
+
+.hub-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  /* Default covers 'idle': a quiet, neutral dot — the hub simply hasn't
+     been needed yet, which is not an error condition. */
+  background: var(--mat-sys-outline);
+}
+
+/* 'connecting' — establishing the first connection. */
+.hub-badge.is-connecting .hub-badge__dot {
+  background: var(--up-status-pending);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.hub-badge.is-connected .hub-badge__dot {
+  background: var(--up-status-completed);
+}
+
+.hub-badge.is-reconnecting .hub-badge__dot {
+  background: var(--up-status-completedwitherrors);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* 'disconnected' — a connection was established and then genuinely lost.
+   This is the only state that should read as a problem. */
+.hub-badge.is-disconnected .hub-badge__dot {
+  background: var(--up-status-failed);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Respect users who prefer reduced motion — drop the pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .hub-badge__dot {
+    animation: none !important;
+  }
+}

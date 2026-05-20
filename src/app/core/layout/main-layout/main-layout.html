@@ -1,0 +1,80 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav mode="side" opened class="shell__nav">
+    <div class="shell__brand">
+      <mat-icon class="shell__brand-icon" aria-hidden="true"
+        >cloud_upload</mat-icon
+      >
+      <span class="shell__brand-text">Upload Processing</span>
+    </div>
+
+    <mat-nav-list class="shell__nav-list">
+      <a
+        mat-list-item
+        routerLink="/dashboard"
+        routerLinkActive
+        #dashboardLink="routerLinkActive"
+        [activated]="dashboardLink.isActive"
+      >
+        <mat-icon matListItemIcon>dashboard</mat-icon>
+        <span matListItemTitle>Dashboard</span>
+      </a>
+
+      <a
+        mat-list-item
+        routerLink="/upload"
+        routerLinkActive
+        #uploadLink="routerLinkActive"
+        [activated]="uploadLink.isActive"
+      >
+        <mat-icon matListItemIcon>upload_file</mat-icon>
+        <span matListItemTitle>New upload</span>
+      </a>
+
+      <a
+        mat-list-item
+        routerLink="/runs"
+        routerLinkActive
+        #historyLink="routerLinkActive"
+        [activated]="historyLink.isActive"
+      >
+        <mat-icon matListItemIcon>history</mat-icon>
+        <span matListItemTitle>Run history</span>
+      </a>
+
+      <a
+        mat-list-item
+        routerLink="/logs"
+        routerLinkActive
+        #logsLink="routerLinkActive"
+        [activated]="logsLink.isActive"
+      >
+        <mat-icon matListItemIcon>article</mat-icon>
+        <span matListItemTitle>Pipeline logs</span>
+      </a>
+
+      <a
+        mat-list-item
+        routerLink="/health"
+        routerLinkActive
+        #healthLink="routerLinkActive"
+        [activated]="healthLink.isActive"
+      >
+        <mat-icon matListItemIcon>monitor_heart</mat-icon>
+        <span matListItemTitle>Pipeline health</span>
+      </a>
+    </mat-nav-list>
+
+    <div class="shell__nav-footer">
+      <app-hub-status-badge />
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar class="shell__toolbar">
+      <span class="shell__toolbar-spacer"></span>
+    </mat-toolbar>
+    <main class="shell__content">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

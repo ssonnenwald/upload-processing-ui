@@ -1,0 +1,13 @@
+<span
+  class="hub-badge"
+  [class.is-idle]="hubState() === 'idle'"
+  [class.is-connecting]="hubState() === 'connecting'"
+  [class.is-connected]="hubState() === 'connected'"
+  [class.is-reconnecting]="hubState() === 'reconnecting'"
+  [class.is-disconnected]="hubState() === 'disconnected'"
+  [matTooltip]="hubTooltip()"
+  matTooltipPosition="right"
+>
+  <span class="hub-badge__dot" aria-hidden="true"></span>
+  <span>{{ hubLabel() }}</span>
+</span>

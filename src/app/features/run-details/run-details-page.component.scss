@@ -1,0 +1,32 @@
+:host { display: block; }
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--up-space-3);
+}
+
+.details__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--up-space-3);
+
+  h1 {
+    font-size: 28px;
+    font-weight: 500;
+    margin: var(--up-space-2) 0 0;
+  }
+}
+
+.details__error {
+  border-color: var(--up-status-failed);
+
+  mat-card-content {
+    display: flex;
+    align-items: center;
+    gap: var(--up-space-2);
+    color: var(--up-status-failed);
+    padding-top: var(--up-space-3);
+  }
+}

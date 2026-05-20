@@ -1,0 +1,105 @@
+<mat-card class="chunk-timeline" appearance="outlined">
+  <mat-card-header class="chunk-timeline__head">
+    <mat-card-title class="chunk-timeline__title"
+      >Chunk timeline</mat-card-title
+    >
+    @if (!isEmpty()) {
+      <span class="chunk-timeline__span"> Span: {{ spanText() }} </span>
+    }
+  </mat-card-header>
+
+  <mat-card-content>
+    @if (isEmpty()) {
+      <p class="chunk-timeline__empty">
+        No chunks have started yet — the timeline appears once processing
+        begins.
+      </p>
+    } @else {
+      <!--
+        One bar per chunk, positioned by start time. viewBox scales the fixed
+        layout coordinates to whatever width the container gives us.
+      -->
+      <svg
+        class="chunk-timeline__svg"
+        [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight()"
+        [attr.height]="svgHeight()"
+        preserveAspectRatio="xMinYMin meet"
+        role="img"
+        aria-label="Timeline of chunk processing"
+      >
+        <!-- Plot-area baseline. -->
+        <line
+          [attr.x1]="plotLeft"
+          [attr.x2]="plotLeft + plotWidth"
+          [attr.y1]="svgHeight() - 20"
+          [attr.y2]="svgHeight() - 20"
+          class="chunk-timeline__axis"
+        />
+
+        <!-- Axis end labels: start (0) on the left, total span on the right. -->
+        <text
+          [attr.x]="plotLeft"
+          [attr.y]="svgHeight() - 6"
+          class="chunk-timeline__axis-label"
+        >
+          0
+        </text>
+        <text
+          [attr.x]="plotLeft + plotWidth"
+          [attr.y]="svgHeight() - 6"
+          text-anchor="end"
+          class="chunk-timeline__axis-label"
+        >
+          {{ spanText() }}
+        </text>
+
+        <!-- Chunk bars. -->
+        @for (bar of bars(); track bar.chunkSk) {
+          <g class="chunk-timeline__row">
+            <!--
+              Row label in the left gutter. Hidden when the run is dense enough
+              that rows are thinned — at that size a label per row is unreadable
+              clutter, and the tooltip still gives the chunk id on hover.
+            -->
+            @if (!isDense()) {
+              <text
+                x="8"
+                [attr.y]="bar.y + barHeight() - 3"
+                class="chunk-timeline__row-label"
+              >
+                {{ bar.label }}
+              </text>
+            }
+
+            <!-- The bar itself. data-status drives the fill via CSS. -->
+            <rect
+              [attr.x]="bar.x"
+              [attr.y]="bar.y"
+              [attr.width]="bar.width"
+              [attr.height]="barHeight()"
+              rx="2"
+              class="chunk-timeline__bar"
+              [attr.data-status]="bar.statusKey"
+            >
+              <title>{{ bar.tooltip }}</title>
+            </rect>
+          </g>
+        }
+      </svg>
+
+      @if (isDense()) {
+        <p class="chunk-timeline__note">
+          Rows are compressed to fit {{ bars().length | number }} chunks on one
+          screen — see the chunks table above for per-chunk detail.
+        </p>
+      }
+
+      @if (notStartedCount() > 0) {
+        <p class="chunk-timeline__note">
+          {{ notStartedCount() }} chunk{{ notStartedCount() === 1 ? "" : "s" }}
+          not started yet — not shown on the timeline.
+        </p>
+      }
+    }
+  </mat-card-content>
+</mat-card>

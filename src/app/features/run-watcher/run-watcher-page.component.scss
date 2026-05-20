@@ -1,0 +1,73 @@
+:host { display: block; }
+
+.watcher {
+  display: flex;
+  flex-direction: column;
+  gap: var(--up-space-3);
+}
+
+.watcher__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--up-space-3);
+
+  h1 {
+    font-size: 28px;
+    font-weight: 500;
+    margin: var(--up-space-2) 0 0;
+  }
+}
+
+.watcher__header-actions {
+  display: flex;
+  gap: var(--up-space-2);
+}
+
+.watcher__status-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--up-space-2);
+  padding: var(--up-space-2) var(--up-space-3);
+  background: color-mix(in srgb, var(--up-status-inprogress) 12%, transparent);
+  color: var(--up-status-inprogress);
+  border-radius: var(--up-radius);
+  font-size: 14px;
+
+  &.is-terminal {
+    background: color-mix(in srgb, var(--up-status-completed) 12%, transparent);
+    color: var(--up-status-completed);
+  }
+
+  &.is-reconnecting {
+    background: color-mix(in srgb, var(--up-status-completedwitherrors) 12%, transparent);
+    color: var(--up-status-completedwitherrors);
+  }
+}
+
+.watcher__status-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+
+  // Animate the sync icon while the run is in progress to reinforce "live".
+  .watcher__status-banner:not(.is-terminal):not(.is-reconnecting) & {
+    animation: spin 2s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.watcher__error {
+  border-color: var(--up-status-failed);
+
+  mat-card-content {
+    display: flex;
+    align-items: center;
+    gap: var(--up-space-2);
+    color: var(--up-status-failed);
+    padding-top: var(--up-space-3);
+  }
+}

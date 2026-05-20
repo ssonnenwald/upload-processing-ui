@@ -1,0 +1,240 @@
+<div class="health-page">
+  <header class="health-page__header">
+    <h1>Pipeline Health</h1>
+    <p class="health-page__subtitle">
+      Queue depths for the processing pipeline, and tools to inspect and recover
+      dead-lettered messages.
+    </p>
+  </header>
+
+  <!-- Page-level alert when any DLQ has stuck messages -->
+  @if (hasStuckMessages()) {
+    <mat-card
+      class="health-page__banner health-page__banner--alert"
+      appearance="outlined"
+    >
+      <mat-card-content>
+        <mat-icon aria-hidden="true">warning</mat-icon>
+        <span>
+          One or more dead-letter queues have messages. Expand a DLQ below to
+          see what failed.
+        </span>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- ============================ Queue depths ============================ -->
+  <section class="health-page__section">
+    <div class="health-page__section-head">
+      <h2>Queues</h2>
+      <div class="health-page__refresh-controls">
+        @if (lastUpdated(); as updated) {
+          <span class="health-page__last-updated">
+            Updated {{ updated | date: "HH:mm:ss" }}
+          </span>
+        }
+        <mat-slide-toggle
+          [ngModel]="autoRefresh()"
+          (ngModelChange)="autoRefresh.set($event)"
+        >
+          Auto-refresh
+        </mat-slide-toggle>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="loadHealth()"
+          [disabled]="healthLoading()"
+        >
+          <mat-icon aria-hidden="true">refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    @if (healthLoading()) {
+      <mat-progress-bar
+        mode="indeterminate"
+        aria-label="Loading queue health"
+      />
+    } @else if (healthError()) {
+      <mat-card
+        class="health-page__banner health-page__banner--alert"
+        appearance="outlined"
+      >
+        <mat-card-content>
+          <mat-icon aria-hidden="true">error_outline</mat-icon>
+          <span>{{ healthError() }}</span>
+          <button mat-stroked-button type="button" (click)="loadHealth()">
+            Retry
+          </button>
+        </mat-card-content>
+      </mat-card>
+    } @else if (health(); as h) {
+      <div class="health-page__queues">
+        @for (queue of h.queues; track queue.name) {
+          <mat-card
+            class="health-page__queue"
+            [attr.data-severity]="queueSeverity(queue)"
+            appearance="outlined"
+          >
+            <mat-card-content>
+              <div class="health-page__queue-head">
+                <span class="health-page__queue-name">{{ queue.name }}</span>
+                <span class="health-page__queue-role">{{ queue.role }}</span>
+              </div>
+
+              @if (queue.error) {
+                <p class="health-page__queue-error">{{ queue.error }}</p>
+              } @else {
+                <div class="health-page__queue-stats">
+                  <div class="health-page__stat">
+                    <span class="health-page__stat-value">
+                      {{ queue.visibleMessages | number }}
+                    </span>
+                    <span class="health-page__stat-label">visible</span>
+                  </div>
+                  <div class="health-page__stat">
+                    <span class="health-page__stat-value">
+                      {{ queue.inFlightMessages | number }}
+                    </span>
+                    <span class="health-page__stat-label">in flight</span>
+                  </div>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ========================== Dead-letter queues ========================= -->
+  <section class="health-page__section">
+    <h2>Dead-letter queues</h2>
+
+    @for (panel of panels(); track panel.id) {
+      <mat-card class="health-page__dlq" appearance="outlined">
+        <mat-card-header>
+          <mat-card-title>{{ panel.title }}</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="health-page__dlq-blurb">{{ panel.blurb }}</p>
+
+          @if (!panel.loaded && !panel.loading) {
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="loadDlq(panel.id)"
+            >
+              <mat-icon aria-hidden="true">visibility</mat-icon>
+              Inspect messages
+            </button>
+          }
+
+          @if (panel.loading) {
+            <mat-progress-bar
+              mode="indeterminate"
+              aria-label="Loading DLQ messages"
+            />
+          }
+
+          @if (panel.error) {
+            <p class="health-page__dlq-error">
+              <mat-icon aria-hidden="true">error_outline</mat-icon>
+              {{ panel.error }}
+            </p>
+          }
+
+          @if (panel.loaded && !panel.loading && panel.response; as res) {
+            @if (res.messages.length === 0) {
+              <p class="health-page__dlq-empty">
+                <mat-icon aria-hidden="true">check_circle</mat-icon>
+                No messages — this DLQ is empty.
+              </p>
+            } @else {
+              <div class="health-page__messages">
+                @for (msg of res.messages; track msg.messageId) {
+                  <div class="health-page__message">
+                    <div class="health-page__message-meta">
+                      <span class="health-page__message-id">{{
+                        msg.messageId
+                      }}</span>
+                      @if (msg.sentAt) {
+                        <span class="health-page__message-time">
+                          sent {{ msg.sentAt | date: "medium" }}
+                        </span>
+                      }
+                      <span class="health-page__message-attempts">
+                        {{ msg.receiveCount }} attempt{{
+                          msg.receiveCount === 1 ? "" : "s"
+                        }}
+                      </span>
+                    </div>
+
+                    <pre class="health-page__message-body">{{ msg.body }}</pre>
+
+                    <!-- Replay controls — orchestration DLQ only -->
+                    @if (res.replayable) {
+                      <div class="health-page__message-actions">
+                        @if (pendingReplayId() === msg.messageId) {
+                          <span class="health-page__confirm-text">
+                            Replay this message to the orchestration queue?
+                          </span>
+                          <button
+                            mat-flat-button
+                            type="button"
+                            (click)="confirmReplay(msg)"
+                          >
+                            Confirm replay
+                          </button>
+                          <button
+                            mat-button
+                            type="button"
+                            (click)="cancelReplay()"
+                          >
+                            Cancel
+                          </button>
+                        } @else {
+                          <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="replayingId() === msg.messageId"
+                            (click)="askReplay(msg.messageId)"
+                          >
+                            <mat-icon aria-hidden="true">replay</mat-icon>
+                            @if (replayingId() === msg.messageId) {
+                              Replaying…
+                            } @else {
+                              Replay
+                            }
+                          </button>
+                        }
+                      </div>
+                    } @else {
+                      <p class="health-page__inspect-note">
+                        Inspect-only. To diagnose why StreamBridge failed, check
+                        the
+                        <a routerLink="/logs">pipeline logs</a> for the
+                        StreamBridge log group.
+                      </p>
+                    }
+                  </div>
+                }
+              </div>
+
+              <button
+                mat-button
+                type="button"
+                class="health-page__refresh-dlq"
+                (click)="loadDlq(panel.id)"
+              >
+                <mat-icon aria-hidden="true">refresh</mat-icon>
+                Refresh
+              </button>
+            }
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+  </section>
+</div>

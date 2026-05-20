@@ -1,0 +1,49 @@
+:host {
+  display: inline-block;
+  font-family: var(
+    --up-font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "Consolas",
+    monospace
+  );
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.nest {
+  padding-left: var(--up-space-3, 16px);
+  border-left: 1px solid var(--mat-sys-outline-variant);
+}
+
+.row {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.key {
+  color: var(--mat-sys-primary);
+}
+
+.key--error {
+  color: var(--up-status-failed, #d32f2f);
+  font-weight: 600;
+}
+
+.punct {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.val[data-type="string"] {
+  color: var(--up-json-string, #2e7d32);
+}
+.val[data-type="number"] {
+  color: var(--up-json-number, #1565c0);
+}
+.val[data-type="boolean"] {
+  color: var(--up-json-boolean, #8e24aa);
+}
+.val[data-type="null"] {
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+}

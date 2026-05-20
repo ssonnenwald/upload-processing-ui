@@ -1,0 +1,100 @@
+/*
+ * Root is now a <mat-card> — it supplies its own padding and border. The
+ * mat-card-header is overridden to a simple space-between row so the title and
+ * the "Span" text sit on one line, matching the card's sibling components.
+ * The :host-context-free compound selector raises specificity enough to beat
+ * Material's own .mat-mdc-card-header flex rules.
+ */
+.chunk-timeline .chunk-timeline__head {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--up-space-3);
+}
+
+.chunk-timeline__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.chunk-timeline__span {
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.chunk-timeline__empty,
+.chunk-timeline__note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* The card-content has no flex gap, so space the note off the SVG explicitly. */
+.chunk-timeline__note {
+  margin-top: var(--up-space-2);
+}
+
+.chunk-timeline__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* --- Axis ---------------------------------------------------------------- */
+
+.chunk-timeline__axis {
+  stroke: var(--mat-sys-outline-variant);
+  stroke-width: 1;
+}
+
+.chunk-timeline__axis-label {
+  fill: var(--mat-sys-on-surface-variant);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Rows ---------------------------------------------------------------- */
+
+.chunk-timeline__row-label {
+  fill: var(--mat-sys-on-surface-variant);
+  font-size: 11px;
+  font-family: var(
+    --up-font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "Consolas",
+    monospace
+  );
+}
+
+/*
+ * Bar fill by chunk status. The data-status attribute is the lower-cased
+ * status string; each maps to a shared --up-status-* token, the same palette
+ * the status badges use — so adding a status only needs a token, not a rule
+ * change here (beyond one line).
+ */
+.chunk-timeline__bar {
+  fill: var(--up-status-pending);
+  transition: opacity 120ms ease;
+}
+
+.chunk-timeline__bar:hover {
+  opacity: 0.78;
+  cursor: default;
+}
+
+.chunk-timeline__bar[data-status="pending"] {
+  fill: var(--up-status-pending);
+}
+.chunk-timeline__bar[data-status="inprogress"] {
+  fill: var(--up-status-inprogress);
+}
+.chunk-timeline__bar[data-status="succeeded"] {
+  fill: var(--up-status-succeeded);
+}
+.chunk-timeline__bar[data-status="failed"] {
+  fill: var(--up-status-failed);
+}

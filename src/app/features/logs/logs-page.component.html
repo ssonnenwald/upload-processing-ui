@@ -1,0 +1,229 @@
+<div class="logs-page">
+  <header class="logs-page__header">
+    <h1>Pipeline Logs</h1>
+    <p class="logs-page__subtitle">
+      CloudWatch logs for the UploadProcessing Lambdas. Pick a log group, tune
+      the filters, and load the most recent activity.
+    </p>
+  </header>
+
+  <!-- Catalog still loading -->
+  @if (catalogLoading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading log groups" />
+  }
+
+  <!-- Catalog failed -->
+  @else if (catalogError()) {
+  <mat-card
+    class="logs-page__notice logs-page__notice--error"
+    appearance="outlined"
+  >
+    <mat-card-content>
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <span>{{ catalogError() }}</span>
+      <button mat-stroked-button type="button" (click)="retryCatalog()">
+        Retry
+      </button>
+    </mat-card-content>
+  </mat-card>
+  }
+
+  <!-- Catalog ready -->
+  @else {
+  <!-- Filter controls -->
+  <mat-card class="logs-page__filters" appearance="outlined">
+    <mat-card-content>
+      <mat-form-field appearance="outline">
+        <mat-label>Log group</mat-label>
+        <mat-select
+          [ngModel]="selectedGroup()"
+          (ngModelChange)="selectedGroup.set($event)"
+        >
+          @for (fn of functions(); track fn.group) {
+          <mat-option [value]="fn.group"> {{ fn.name }} </mat-option>
+          }
+        </mat-select>
+        @if (selectedGroup(); as group) {
+        <mat-hint>{{ group }}</mat-hint>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Streams to read</mat-label>
+        <mat-select [ngModel]="streams()" (ngModelChange)="streams.set($event)">
+          <mat-option [value]="1">Most recent (1)</mat-option>
+          <mat-option [value]="3">Recent (3)</mat-option>
+          <mat-option [value]="5">Wider (5)</mat-option>
+          <mat-option [value]="10">Deep (10)</mat-option>
+        </mat-select>
+        <mat-hint>How far back across invocations to look</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Minimum level</mat-label>
+        <mat-select
+          [ngModel]="minLevel()"
+          (ngModelChange)="minLevel.set($event)"
+        >
+          @for (opt of minLevelOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Hides lower-severity structured-log blocks</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Time window</mat-label>
+        <mat-select
+          [ngModel]="sinceMinutes()"
+          (ngModelChange)="sinceMinutes.set($event)"
+        >
+          @for (opt of sinceOptions; track opt.label) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="logs-page__runid">
+        <mat-label>Run ID (optional)</mat-label>
+        <input
+          matInput
+          type="text"
+          [ngModel]="runId()"
+          (ngModelChange)="runId.set($event)"
+          placeholder="RUN#2026-…#hash"
+        />
+        <mat-hint>Only show events whose message mentions this run</mat-hint>
+      </mat-form-field>
+
+      <button
+        mat-flat-button
+        type="button"
+        class="logs-page__load-btn"
+        [disabled]="!canLoad()"
+        (click)="loadLogs()"
+      >
+        <mat-icon aria-hidden="true">search</mat-icon>
+        Load logs
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Fetch in progress -->
+  @if (loading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading logs" />
+  }
+
+  <!-- Fetch failed -->
+  @if (error()) {
+  <mat-card
+    class="logs-page__notice logs-page__notice--error"
+    appearance="outlined"
+  >
+    <mat-card-content>
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <span>{{ error() }}</span>
+      <button mat-stroked-button type="button" (click)="loadLogs()">
+        Retry
+      </button>
+    </mat-card-content>
+  </mat-card>
+  }
+
+  <!-- Results -->
+  @if (result(); as res) {
+  <section class="logs-page__results" aria-live="polite">
+    <div class="logs-page__results-header">
+      <h2>{{ selectedGroupName() }}</h2>
+      <span class="logs-page__count">
+        {{ totalEvents() | number }} line{{ totalEvents() === 1 ? '' : 's' }}
+        across {{ res.streams.length }} stream{{ res.streams.length === 1 ? '' :
+        's' }}
+      </span>
+    </div>
+
+    <!-- API-level note (e.g. no streams found) -->
+    @if (res.note) {
+    <mat-card class="logs-page__notice" appearance="outlined">
+      <mat-card-content>
+        <mat-icon aria-hidden="true">info_outline</mat-icon>
+        <span>{{ res.note }}</span>
+      </mat-card-content>
+    </mat-card>
+    }
+
+    <!-- Filter / collapse summary -->
+    @if (res.levelFiltered > 0 || res.duplicatesCollapsed > 0) {
+    <p class="logs-page__summary">
+      @if (res.duplicatesCollapsed > 0) { {{ res.duplicatesCollapsed | number }}
+      duplicate line(s) collapsed. } @if (res.levelFiltered > 0) { {{
+      res.levelFiltered | number }} block(s) below the level filter hidden. }
+    </p>
+    }
+
+    <!-- One panel per stream -->
+    @for (stream of res.streams; track stream.streamName) {
+    <mat-card class="logs-page__stream" appearance="outlined">
+      <mat-card-header>
+        <mat-card-title class="logs-page__stream-name">
+          {{ stream.streamName }}
+        </mat-card-title>
+        @if (stream.lastEventAt) {
+        <mat-card-subtitle>
+          Last event {{ stream.lastEventAt | date: 'medium' }}
+        </mat-card-subtitle>
+        }
+      </mat-card-header>
+      <mat-card-content>
+        @if (stream.events.length === 0) {
+        <p class="logs-page__stream-empty">No lines in this stream.</p>
+        } @else {
+        <div class="logs-page__events">
+          @for (evt of stream.events; track $index) {
+          <div
+            class="logs-page__event"
+            [attr.data-severity]="evt.severity.toLowerCase()"
+          >
+            <span class="logs-page__event-sev">{{ evt.severity }}</span>
+            <div class="logs-page__event-body">
+              @if (evt.timestamp) {
+              <span class="logs-page__event-ts">
+                {{ evt.timestamp | date: 'HH:mm:ss' }}
+              </span>
+              } @if (evt.kind === 'json') { @if (evt.text) {
+              <span class="logs-page__event-text">{{ evt.text }}</span>
+              }
+              <app-json-tree [value]="evt.json" />
+              @if (evt.suffix) {
+              <span class="logs-page__event-text">{{ evt.suffix }}</span>
+              } } @else {
+              <span class="logs-page__event-text">{{ evt.text }}</span>
+              }
+            </div>
+          </div>
+          }
+        </div>
+        }
+      </mat-card-content>
+    </mat-card>
+    }
+  </section>
+  }
+
+  <!-- Empty state — fetched, no error, no result rows -->
+  @else if (hasFetched() && !loading() && !error()) {
+  <mat-card class="logs-page__notice" appearance="outlined">
+    <mat-card-content>
+      <mat-icon aria-hidden="true">inbox</mat-icon>
+      <span>No log activity for this selection.</span>
+    </mat-card-content>
+  </mat-card>
+  }
+
+  <!-- Initial state — nothing fetched yet -->
+  @else if (!hasFetched() && !loading()) {
+  <p class="logs-page__hint">
+    Choose a log group and select <strong>Load logs</strong> to begin.
+  </p>
+  } }
+</div>

@@ -1,0 +1,164 @@
+<div class="upload">
+  <header class="upload__header">
+    <h1>New upload</h1>
+    <p class="upload__subtitle">
+      Pick an upload type, drop your file, set options, and submit. You'll be
+      taken to the live view as soon as the orchestrator picks up the run.
+    </p>
+  </header>
+
+  @if (functions.catalogLoading()) {
+    <mat-progress-bar mode="indeterminate" />
+  } @else if (functions.catalogError(); as err) {
+    <mat-card appearance="outlined" class="upload__error">
+      <mat-card-content>
+        <mat-icon>error</mat-icon>
+        <span>{{ err }}</span>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-stroked-button (click)="retryCatalog()">
+          <mat-icon>refresh</mat-icon>
+          Retry
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  } @else {
+    <mat-card appearance="outlined" class="upload__card">
+      <mat-card-content class="upload__form">
+        <!-- ─── Function picker ─────────────────────────────────────────── -->
+        <mat-form-field appearance="outline" class="upload__field">
+          <mat-label>Upload type</mat-label>
+          <mat-select
+            [ngModel]="selectedFunction()"
+            (ngModelChange)="selectedFunction.set($event)"
+            [disabled]="upload.uploading()"
+          >
+            @for (entry of functions.catalog(); track entry.function) {
+              <mat-option [value]="entry.function">
+                {{ entry.displayName }}
+                <span class="upload__option-key">({{ entry.function }})</span>
+              </mat-option>
+            }
+          </mat-select>
+          @if (currentDefinition()?.definition; as def) {
+            <mat-hint>{{ def.description }}</mat-hint>
+          }
+        </mat-form-field>
+
+        <!-- ─── Uploaded by ─────────────────────────────────────────────── -->
+        <mat-form-field appearance="outline" class="upload__field">
+          <mat-label>Uploaded by</mat-label>
+          <input
+            matInput
+            [ngModel]="uploadedBy()"
+            (ngModelChange)="uploadedBy.set($event)"
+            [disabled]="upload.uploading()"
+            placeholder="e.g. jdoe"
+            autocomplete="username"
+          />
+          <mat-hint
+            >Recorded on the run for audit and history filtering.</mat-hint
+          >
+        </mat-form-field>
+
+        <!-- ─── File picker / drop zone ─────────────────────────────────── -->
+        <div
+          class="upload__dropzone"
+          [class.is-active]="fileDragOver()"
+          [class.has-file]="file() !== null"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave()"
+          (drop)="onFileDropped($event)"
+        >
+          @if (file(); as f) {
+            <mat-icon class="upload__dropzone-icon">description</mat-icon>
+            <div class="upload__file-info">
+              <div class="upload__file-name">{{ f.name }}</div>
+              <div class="upload__file-size">
+                {{ f.size / 1024 | number: "1.0-1" }} KB
+              </div>
+            </div>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Remove file"
+              (click)="clearFile()"
+              [disabled]="upload.uploading()"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          } @else {
+            <mat-icon class="upload__dropzone-icon">cloud_upload</mat-icon>
+            <div>
+              <strong>Drop a file here</strong>, or
+              <label class="upload__file-label">
+                browse
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  hidden
+                  (change)="onFileSelected($event)"
+                  [disabled]="upload.uploading()"
+                />
+              </label>
+            </div>
+            @if (currentDefinition()?.definition; as def) {
+              <div class="upload__hint">
+                Expected: {{ def.file.format }} matching
+                <code>{{ def.file.namingPattern }}</code>
+              </div>
+            }
+          }
+        </div>
+
+        <!-- ─── Options panel ───────────────────────────────────────────── -->
+        @if (definitionLoading()) {
+          <div class="upload__options-loading">
+            <mat-progress-bar mode="indeterminate" />
+            <span>Loading options…</span>
+          </div>
+        } @else if (editableOptions().length > 0) {
+          <fieldset class="upload__options">
+            <legend>Options</legend>
+            @for (opt of editableOptions(); track opt.key) {
+              <mat-checkbox
+                [checked]="optionValues()[opt.key]"
+                (change)="toggleOption(opt.key, $event.checked)"
+                [disabled]="upload.uploading()"
+              >
+                {{ opt.label }}
+              </mat-checkbox>
+            }
+          </fieldset>
+        }
+
+        <!-- ─── Upload progress ─────────────────────────────────────────── -->
+        @if (upload.uploading()) {
+          <div class="upload__progress" role="status" aria-live="polite">
+            <mat-progress-bar mode="determinate" [value]="upload.percent()" />
+            <span>Uploading… {{ upload.percent() }}%</span>
+          </div>
+        }
+
+        @if (upload.error(); as err) {
+          <div class="upload__inline-error" role="alert">
+            <mat-icon>error</mat-icon>
+            <span>{{ err }}</span>
+          </div>
+        }
+      </mat-card-content>
+
+      <mat-card-actions align="end">
+        <button
+          mat-flat-button
+          color="primary"
+          [disabled]="!canSubmit()"
+          (click)="submit()"
+        >
+          <mat-icon>upload</mat-icon>
+          Submit upload
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  }
+</div>

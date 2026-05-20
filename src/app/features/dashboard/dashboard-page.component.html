@@ -1,0 +1,279 @@
+<div class="dashboard">
+  <header class="dashboard__header">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="dashboard__subtitle">
+        An overview of upload activity and pipeline health.
+      </p>
+    </div>
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="loadAll()"
+      [disabled]="summaryLoading() || healthLoading() || activeLoading()"
+    >
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Refresh
+    </button>
+  </header>
+
+  <!-- ============================ Run summary ============================= -->
+  <section class="dashboard__section">
+    @if (summaryLoading()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading run summary" />
+    } @else if (summaryError()) {
+      <mat-card
+        class="dashboard__notice dashboard__notice--error"
+        appearance="outlined"
+      >
+        <mat-card-content>
+          <mat-icon aria-hidden="true">error_outline</mat-icon>
+          <span>{{ summaryError() }}</span>
+          <button mat-stroked-button type="button" (click)="loadAll()">
+            Retry
+          </button>
+        </mat-card-content>
+      </mat-card>
+    } @else if (summary(); as s) {
+      <!-- Headline numbers -->
+      <div class="dashboard__headline">
+        <div class="dashboard__headline-stat">
+          <span class="dashboard__headline-value">
+            {{ s.totalRuns | number }}{{ s.isApproximate ? "+" : "" }}
+          </span>
+          <span class="dashboard__headline-label">
+            recent run{{ s.totalRuns === 1 ? "" : "s" }}
+          </span>
+        </div>
+        <div class="dashboard__headline-stat">
+          <span
+            class="dashboard__headline-value"
+            [class.dashboard__headline-value--active]="activeCount() > 0"
+          >
+            {{ activeCount() | number }}
+          </span>
+          <span class="dashboard__headline-label">currently active</span>
+        </div>
+      </div>
+
+      @if (s.isApproximate) {
+        <p class="dashboard__approx-note">
+          Counts reflect recent runs; a status with a long history is shown as a
+          lower bound.
+        </p>
+      }
+
+      <!-- Status tiles -->
+      <div class="dashboard__tiles">
+        @for (tile of tiles(); track tile.status) {
+          <button
+            type="button"
+            class="dashboard__tile"
+            [attr.data-status]="tile.status.toLowerCase()"
+            (click)="openStatus(tile.status)"
+          >
+            <span class="dashboard__tile-count">{{ tile.count | number }}</span>
+            <span class="dashboard__tile-label">{{ tile.label }}</span>
+          </button>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ============================ Active runs ============================= -->
+  <section class="dashboard__section">
+    <h2 class="dashboard__section-title">Active runs</h2>
+    @if (activeLoading()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading active runs" />
+    } @else if (activeError()) {
+      <p class="dashboard__empty">{{ activeError() }}</p>
+    } @else if (activeRuns().length === 0) {
+      <mat-card class="dashboard__card" appearance="outlined">
+        <mat-card-content>
+          <div class="dashboard__dlq-ok">
+            <mat-icon aria-hidden="true">check_circle</mat-icon>
+            <span>Nothing is running right now.</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    } @else {
+      <mat-card class="dashboard__card" appearance="outlined">
+        <mat-card-content class="dashboard__active-list">
+          @for (run of activeRuns(); track run.runId) {
+            <button
+              type="button"
+              class="dashboard__active-row"
+              (click)="openRun(run)"
+            >
+              <span class="dashboard__active-fn">{{ run.function }}</span>
+              <app-status-badge [status]="run.status" />
+              <span class="dashboard__active-progress">
+                {{ run.chunksCompleted | number }} /
+                {{ run.totalChunks | number }} chunks
+              </span>
+              <span class="dashboard__active-meta">
+                {{ run.uploadedBy }} · {{ run.uploadedAt | date: "short" }}
+              </span>
+            </button>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+  </section>
+
+  <!-- ===================== Most recent run + DLQ health =================== -->
+  <section class="dashboard__columns">
+    <!-- Most recent run -->
+    <mat-card class="dashboard__card" appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Most recent run</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (summaryLoading()) {
+          <mat-progress-bar
+            mode="indeterminate"
+            aria-label="Loading recent run"
+          />
+        } @else if (summary()?.mostRecentRun; as run) {
+          <button
+            type="button"
+            class="dashboard__recent"
+            (click)="openRun(run)"
+          >
+            <div class="dashboard__recent-top">
+              <span class="dashboard__recent-fn">{{ run.function }}</span>
+              <app-status-badge [status]="run.status" />
+            </div>
+            <div class="dashboard__recent-meta">
+              <span>{{ run.uploadedBy }}</span>
+              <span>{{ run.uploadedAt | date: "medium" }}</span>
+            </div>
+            <div class="dashboard__recent-meta">
+              <span>{{ run.totalRows | number }} rows</span>
+              <span>
+                {{ run.chunksCompleted | number }} /
+                {{ run.totalChunks | number }} chunks
+              </span>
+            </div>
+          </button>
+        } @else if (!summaryError()) {
+          <p class="dashboard__empty">No runs yet.</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Most recent failure -->
+    <mat-card
+      class="dashboard__card"
+      [class.dashboard__card--alert]="!!summary()?.mostRecentFailure"
+      appearance="outlined"
+    >
+      <mat-card-header>
+        <mat-card-title>Most recent failure</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (summaryLoading()) {
+          <mat-progress-bar
+            mode="indeterminate"
+            aria-label="Loading recent failure"
+          />
+        } @else if (summary()?.mostRecentFailure; as run) {
+          <button
+            type="button"
+            class="dashboard__recent"
+            (click)="openRun(run)"
+          >
+            <div class="dashboard__recent-top">
+              <span class="dashboard__recent-fn">{{ run.function }}</span>
+              <app-status-badge [status]="run.status" />
+            </div>
+            <div class="dashboard__recent-meta">
+              <span>{{ run.uploadedBy }}</span>
+              <span>{{ run.uploadedAt | date: "medium" }}</span>
+            </div>
+            <div class="dashboard__recent-meta">
+              <span>{{ run.totalRows | number }} rows</span>
+              <span>
+                {{ run.chunksCompleted | number }} /
+                {{ run.totalChunks | number }} chunks
+              </span>
+            </div>
+          </button>
+        } @else if (!summaryError()) {
+          <div class="dashboard__dlq-ok">
+            <mat-icon aria-hidden="true">check_circle</mat-icon>
+            <span>No failures.</span>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- DLQ health -->
+    <mat-card
+      class="dashboard__card"
+      [class.dashboard__card--alert]="stuckDlqs().length > 0"
+      appearance="outlined"
+    >
+      <mat-card-header>
+        <mat-card-title>Dead-letter queues</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (healthLoading()) {
+          <mat-progress-bar
+            mode="indeterminate"
+            aria-label="Loading queue health"
+          />
+        } @else if (healthError()) {
+          <p class="dashboard__empty">{{ healthError() }}</p>
+        } @else if (stuckDlqs().length > 0) {
+          <div class="dashboard__dlq-alert">
+            <mat-icon aria-hidden="true">warning</mat-icon>
+            <span>
+              {{ stuckDlqs().length }} dead-letter queue{{
+                stuckDlqs().length === 1 ? "" : "s"
+              }}
+              {{ stuckDlqs().length === 1 ? "has" : "have" }} stuck messages.
+            </span>
+          </div>
+          <ul class="dashboard__dlq-list">
+            @for (dlq of stuckDlqs(); track dlq.name) {
+              <li>
+                <span>{{ dlq.name }}</span>
+                <span class="dashboard__dlq-count">
+                  {{ dlq.visibleMessages | number }}
+                </span>
+              </li>
+            }
+          </ul>
+          <a mat-stroked-button routerLink="/health">
+            <mat-icon aria-hidden="true">monitor_heart</mat-icon>
+            Open pipeline health
+          </a>
+        } @else {
+          <div class="dashboard__dlq-ok">
+            <mat-icon aria-hidden="true">check_circle</mat-icon>
+            <span>All dead-letter queues are empty.</span>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- ============================ Quick links ============================= -->
+  <section class="dashboard__section">
+    <div class="dashboard__quick-links">
+      <a mat-flat-button routerLink="/upload">
+        <mat-icon aria-hidden="true">upload_file</mat-icon>
+        New upload
+      </a>
+      <a mat-stroked-button routerLink="/runs">
+        <mat-icon aria-hidden="true">history</mat-icon>
+        Run history
+      </a>
+      <a mat-stroked-button routerLink="/logs">
+        <mat-icon aria-hidden="true">article</mat-icon>
+        Pipeline logs
+      </a>
+    </div>
+  </section>
+</div>

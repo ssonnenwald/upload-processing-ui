@@ -1,0 +1,51 @@
+@switch (kind()) {
+  @case ("object") {
+    <span class="punct">&#123;</span>
+    <div class="nest">
+      @for (entry of entries(); track entry.key; let last = $last) {
+        <div class="row">
+          <span class="key" [class.key--error]="entry.errorKey">{{
+            entry.key
+          }}</span>
+          <span class="punct">:</span>
+          @if (entry.leaf) {
+            <span class="val" [attr.data-type]="entry.valueType">{{
+              entry.display
+            }}</span>
+          } @else {
+            <app-json-tree [value]="entry.value" />
+          }
+          @if (!last) {
+            <span class="punct">,</span>
+          }
+        </div>
+      }
+    </div>
+    <span class="punct">&#125;</span>
+  }
+  @case ("array") {
+    <span class="punct">[</span>
+    <div class="nest">
+      @for (item of items(); track $index; let last = $last) {
+        <div class="row">
+          @if (item.leaf) {
+            <span class="val" [attr.data-type]="item.valueType">{{
+              item.display
+            }}</span>
+          } @else {
+            <app-json-tree [value]="item.value" />
+          }
+          @if (!last) {
+            <span class="punct">,</span>
+          }
+        </div>
+      }
+    </div>
+    <span class="punct">]</span>
+  }
+  @default {
+    <span class="val" [attr.data-type]="scalarType()">{{
+      scalarDisplay()
+    }}</span>
+  }
+}
