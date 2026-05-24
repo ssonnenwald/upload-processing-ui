@@ -20,19 +20,34 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { FunctionsStore } from '@core/stores/functions.store';
 import { UploadStore } from '@core/stores/upload.store';
-import { UploadDefinitionOption } from '@core/models/run.models';
+import {
+  UploadDefinitionOption,
+  UploadDefinitionOptionValidation,
+} from '@core/models/run.models';
 
+/**
+ * Shape used to drive the @for in the template. `kind` collapses the option type +
+ * the allowed-values presence into a single discriminator the template can switch on,
+ * so the template doesn't have to repeat the "string with allowedValues -> dropdown"
+ * logic inline. `validation` is non-null only when there are rules to enforce.
+ */
 interface OptionRow {
   readonly key: string;
   readonly label: string;
-  readonly defaultValue: boolean;
+  readonly hint: string | null;
+  readonly kind: 'boolean' | 'number' | 'text' | 'select';
+  readonly allowedValues: readonly string[] | null;
+  readonly validation: UploadDefinitionOptionValidation | null;
 }
 
 /**
  * Form state for the upload page lives in component signals — it's transient
  * UI state (file picker, drag state, free-text uploadedBy) that doesn't need
- * to outlive the component. The submission flow and the catalog/definition
- * caches go through SignalStores instead.
+ * to outlive the component. The submission flow and the catalog cache go
+ * through SignalStores instead.
+ *
+ * Options come straight from the FunctionsStore catalog (which now embeds each
+ * function's options dictionary), so there's no second fetch per selection.
  */
 @Component({
   selector: 'app-upload-page',
@@ -50,7 +65,7 @@ interface OptionRow {
     MatSelectModule,
   ],
   // UploadStore is page-scoped; FunctionsStore is root-scoped so the catalog
-  // and definitions stay cached across navigations.
+  // stays cached across navigations.
   providers: [UploadStore],
   templateUrl: './upload-page.component.html',
   styleUrl: './upload-page.component.scss',
@@ -68,32 +83,42 @@ export class UploadPageComponent {
   protected readonly uploadedBy = signal('');
   protected readonly file = signal<File | null>(null);
   protected readonly fileDragOver = signal(false);
-  protected readonly optionValues = signal<Record<string, boolean>>({});
+  /**
+   * Map of option key → current value. Heterogeneous because options can be
+   * booleans, numbers, or strings (with or without an allowedValues dropdown).
+   * Components reading this should narrow based on the option's `type`.
+   */
+  protected readonly optionValues = signal<Record<string, unknown>>({});
+  /** Per-option validation messages. Empty string = valid. */
+  protected readonly optionErrors = signal<Record<string, string>>({});
 
   // ---------------------------------------------------------------------------
   // Derived view models pulling from the FunctionsStore
   // ---------------------------------------------------------------------------
-  protected readonly currentDefinition = computed(() => {
+  /** Current catalog entry for the selected function (null if nothing selected). */
+  protected readonly currentEntry = computed(() => {
     const fn = this.selectedFunction();
     if (!fn) return null;
-    return this.functions.definitionsEntityMap()[fn] ?? null;
+    return this.functions.catalogByFunction()[fn] ?? null;
   });
 
-  protected readonly definitionLoading = computed(
-    () => this.currentDefinition()?.loading ?? false,
-  );
-
+  /**
+   * Projects the selected function's user-editable options into the row shape the
+   * template iterates over. Non-editable options are filtered out here so the
+   * default values are still submitted (seeded below) but never shown to the user.
+   */
   protected readonly editableOptions = computed<OptionRow[]>(() => {
-    const cached = this.currentDefinition();
-    const def = cached?.definition;
-    if (!def) return [];
-    return Object.entries(def.options)
-      .filter(([, opt]) => opt.userEditable && opt.type === 'boolean')
-      .map(([key, opt]) => ({
-        key,
-        label: opt.label,
-        defaultValue: Boolean((opt as UploadDefinitionOption).default),
-      }));
+    const entry = this.currentEntry();
+    if (!entry) return [];
+    return Object.entries(entry.options)
+      .filter(([, opt]) => opt.userEditable)
+      .map(([key, opt]) => this.toRow(key, opt));
+  });
+
+  /** True iff any visible option currently has a non-empty error message. */
+  protected readonly hasOptionErrors = computed(() => {
+    const errors = this.optionErrors();
+    return Object.values(errors).some((msg) => msg.length > 0);
   });
 
   protected readonly canSubmit = computed(
@@ -101,26 +126,14 @@ export class UploadPageComponent {
       !this.upload.uploading() &&
       this.selectedFunction() !== null &&
       this.file() !== null &&
-      this.uploadedBy().trim().length > 0,
+      this.uploadedBy().trim().length > 0 &&
+      !this.hasOptionErrors(),
   );
 
   constructor() {
     // Kick off the catalog load on first render. FunctionsStore.loadCatalog is
     // idempotent so calling it again later (e.g. after a hot reload) is safe.
     this.functions.loadCatalog();
-
-    // Feed the selected-function signal straight into loadDefinition. rxMethod
-    // subscribes to the signal once and re-runs only when its value actually
-    // changes — so picking a function fetches its definition exactly once
-    // (cached thereafter), and a null selection is ignored inside the method.
-    //
-    // IMPORTANT: this is intentionally NOT wrapped in an effect(). Calling
-    // loadDefinition from inside an effect makes the effect depend on the
-    // store's `definitions` entity map (loadDefinition reads it in its guard),
-    // and loadDefinition also *writes* that map — so the write retriggers the
-    // effect, which calls loadDefinition again, looping forever and firing the
-    // API endlessly. Feeding the signal directly avoids the effect entirely.
-    this.functions.loadDefinition(this.selectedFunction);
 
     // Auto-select the only function if the catalog has exactly one entry.
     effect(() => {
@@ -130,37 +143,36 @@ export class UploadPageComponent {
       }
     });
 
-    // Seed option defaults the first time a definition arrives for the currently selected
-    // function. We only seed once per function — otherwise this effect re-fires whenever
-    // anything on the FunctionsStore changes and resets the user's checkbox edits back to
-    // defaults. This effect ONLY touches optionValues; it never calls loadDefinition, so
-    // it cannot create the write/re-run loop described above.
+    // Seed option defaults whenever the selected function changes. We only seed
+    // once per function — otherwise this effect would reset the user's edits any
+    // time anything on the FunctionsStore changes. Tracking lastSeededFunction
+    // in a closure variable (rather than a signal) keeps this effect from
+    // depending on its own writes.
     let lastSeededFunction: string | null = null;
     effect(() => {
       const fn = this.selectedFunction();
-      const cached = this.currentDefinition();
-      const def = cached?.definition;
+      const entry = this.currentEntry();
 
-      if (!fn || !def) {
-        // Function unselected or definition not yet loaded — clear and reset tracker so a
-        // future load for the same function will re-seed.
+      if (!fn || !entry) {
         if (lastSeededFunction !== null) {
           this.optionValues.set({});
+          this.optionErrors.set({});
           lastSeededFunction = null;
         }
         return;
       }
 
-      // Already seeded for this function — preserve the user's current edits.
       if (lastSeededFunction === fn) return;
 
-      const seeded: Record<string, boolean> = {};
-      for (const [k, v] of Object.entries(def.options)) {
-        if (v.userEditable && v.type === 'boolean') {
-          seeded[k] = Boolean(v.default);
-        }
+      // Seed every option (editable or not) with its default so the submitted
+      // options object is complete — server-side handlers can rely on every
+      // key being present.
+      const seeded: Record<string, unknown> = {};
+      for (const [k, opt] of Object.entries(entry.options)) {
+        seeded[k] = this.coerceDefault(opt);
       }
       this.optionValues.set(seeded);
+      this.optionErrors.set({});
       lastSeededFunction = fn;
     });
 
@@ -184,6 +196,9 @@ export class UploadPageComponent {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // File picker handlers
+  // ---------------------------------------------------------------------------
   protected onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.file.set(input.files?.[0] ?? null);
@@ -205,19 +220,163 @@ export class UploadPageComponent {
     this.fileDragOver.set(false);
   }
 
-  protected toggleOption(key: string, checked: boolean): void {
-    this.optionValues.update((curr) => ({ ...curr, [key]: checked }));
-  }
-
   protected clearFile(): void {
     this.file.set(null);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Option change handlers — one per kind so the template stays simple and the
+  // typing is honest. Each one writes the new value into optionValues and
+  // recomputes the error message for that key.
+  // ---------------------------------------------------------------------------
+  protected setBoolean(key: string, value: boolean): void {
+    this.optionValues.update((curr) => ({ ...curr, [key]: value }));
+    this.revalidate(key);
+  }
+
+  protected setText(key: string, value: string): void {
+    this.optionValues.update((curr) => ({ ...curr, [key]: value }));
+    this.revalidate(key);
+  }
+
+  protected setNumber(key: string, raw: string): void {
+    // Number inputs deliver a string; convert to a number (or null if empty)
+    // and validate. Storing null lets the validator distinguish "left blank"
+    // from "typed 0".
+    const trimmed = raw.trim();
+    const value = trimmed === '' ? null : Number(trimmed);
+    this.optionValues.update((curr) => ({ ...curr, [key]: value }));
+    this.revalidate(key);
+  }
+
+  /**
+   * Re-runs validation for a single option key. Called from every change handler
+   * so error messages stay in sync without us re-validating the whole form on
+   * every keystroke of an unrelated input.
+   */
+  private revalidate(key: string): void {
+    const entry = this.currentEntry();
+    const opt = entry?.options[key];
+    if (!opt) return;
+    const value = this.optionValues()[key];
+    const message = this.validateOption(opt, value);
+    this.optionErrors.update((curr) => {
+      // Avoid producing a new object identity when nothing changed — the
+      // template's @if guard on hasOptionErrors() and canSubmit() both depend
+      // on this map, so unnecessary writes would trigger unnecessary work.
+      if ((curr[key] ?? '') === message) return curr;
+      return { ...curr, [key]: message };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+  /**
+   * Builds an OptionRow for a single option. `kind` collapses (type, allowedValues)
+   * into a single discriminator: string + allowedValues -> 'select', otherwise the
+   * type maps 1:1.
+   */
+  private toRow(key: string, opt: UploadDefinitionOption): OptionRow {
+    const allowed = opt.validation?.allowedValues ?? null;
+    let kind: OptionRow['kind'];
+    if (opt.type === 'boolean') {
+      kind = 'boolean';
+    } else if (opt.type === 'number') {
+      kind = 'number';
+    } else if (allowed && allowed.length > 0) {
+      kind = 'select';
+    } else {
+      kind = 'text';
+    }
+
+    return {
+      key,
+      label: opt.label,
+      hint: opt.hint ?? null,
+      kind,
+      allowedValues: allowed,
+      validation: opt.validation ?? null,
+    };
+  }
+
+  /**
+   * Coerces an option's `default` (loosely typed as `unknown` on the wire) into
+   * the right runtime shape for its declared type. Missing defaults fall back to
+   * sensible empties so the controls always render in a clean state.
+   */
+  private coerceDefault(opt: UploadDefinitionOption): unknown {
+    if (opt.type === 'boolean') return Boolean(opt.default);
+    if (opt.type === 'number') {
+      return typeof opt.default === 'number' ? opt.default : null;
+    }
+    // string
+    return typeof opt.default === 'string' ? opt.default : '';
+  }
+
+  /**
+   * Validates a single option value against its declared rules. Returns the empty
+   * string when valid — the empty string is what the template treats as "no error".
+   * Validation is best-effort and mirrors the rules declared in the definition JSON
+   * (min/max for numbers, maxLength/pattern/allowedValues for strings). The server
+   * doesn't currently re-validate options, so this is the only line of defense.
+   */
+  private validateOption(opt: UploadDefinitionOption, value: unknown): string {
+    const v = opt.validation;
+    if (opt.type === 'number') {
+      // Disallow blanks for number options — a number option that's editable is
+      // expected to have a value. (If we ever need optional numbers, add an
+      // `optional: true` flag to the definition rather than special-casing here.)
+      if (value === null || value === undefined) return 'Required.';
+      if (typeof value !== 'number' || Number.isNaN(value)) {
+        return 'Must be a number.';
+      }
+      if (v?.min !== null && v?.min !== undefined && value < v.min) {
+        return `Must be at least ${v.min}.`;
+      }
+      if (v?.max !== null && v?.max !== undefined && value > v.max) {
+        return `Must be at most ${v.max}.`;
+      }
+      return '';
+    }
+
+    if (opt.type === 'string') {
+      const str = typeof value === 'string' ? value : '';
+      if (v?.allowedValues && v.allowedValues.length > 0) {
+        // Dropdown is bound to the same allowedValues list, so an out-of-range
+        // value would only happen if a default in the JSON doesn't match — still
+        // worth catching so the user sees why submit is disabled.
+        if (!v.allowedValues.includes(str)) {
+          return 'Pick one of the allowed values.';
+        }
+        return '';
+      }
+      if (v?.maxLength !== null && v?.maxLength !== undefined && str.length > v.maxLength) {
+        return `Must be ${v.maxLength} characters or fewer.`;
+      }
+      if (v?.pattern) {
+        try {
+          const re = new RegExp(v.pattern);
+          if (str.length > 0 && !re.test(str)) {
+            return 'Value does not match the expected format.';
+          }
+        } catch {
+          // A malformed pattern in the definition shouldn't block the user —
+          // log nothing (this validates every keystroke), just skip the check.
+        }
+      }
+      return '';
+    }
+
+    // Booleans are always valid.
+    return '';
   }
 
   protected submit(): void {
     const fn = this.selectedFunction();
     const file = this.file();
     const uploadedBy = this.uploadedBy().trim();
-    if (!fn || !file || !uploadedBy) return;
+    if (!fn || !file || !uploadedBy || this.hasOptionErrors()) return;
 
     this.upload.submit({
       function: fn,

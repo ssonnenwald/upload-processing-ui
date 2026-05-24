@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { signal, WritableSignal } from '@angular/core';
+import { computed, signal, WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { UploadPageComponent } from './upload-page.component';
@@ -9,15 +9,12 @@ import { UploadStore } from '@core/stores/upload.store';
 import type {
   FunctionCatalogEntry,
   UploadDefinitionOption,
-  UploadDefinitionView,
   UploadResponse,
 } from '@core/models/run.models';
 import { makeFunctionEntry as makeCatalogEntry } from '@testing/factories';
 
 // --- Spec-local factories ----------------------------------------------------
-// makeOption and makeDefinition are upload-specific: the local makeDefinition
-// takes a positional `options` record (not a Partial override), so it differs
-// from the shared makeDefinition and stays here.
+// makeOption is upload-page-specific and overlays partials onto a sensible boolean default.
 
 function makeOption(
   over: Partial<UploadDefinitionOption> = {},
@@ -31,48 +28,52 @@ function makeOption(
   };
 }
 
-function makeDefinition(
-  options: Record<string, UploadDefinitionOption> = {},
-): UploadDefinitionView {
-  return {
-    function: 'PID_RECALC',
-    version: '1',
-    displayName: 'PID Recalculation',
-    description: 'Recalculates PID values.',
-    file: { format: 'csv', namingPattern: '*.csv' },
-    columns: [],
-    options,
-  };
+/**
+ * Builds a catalog entry pre-wired with an options dictionary. The component
+ * now reads options straight from the catalog, so seeding the catalog is
+ * sufficient — there's no separate definitions map to populate.
+ */
+function entryWithOptions(
+  fn: string,
+  options: Record<string, UploadDefinitionOption>,
+): FunctionCatalogEntry {
+  return makeCatalogEntry({ function: fn, options });
 }
 
-/** A cached-definition entry shaped like FunctionsStore's entity. */
-interface CachedDefinition {
-  id: string;
-  definition: UploadDefinitionView | null;
-  loading: boolean;
-  error: string | null;
-}
-
-/** Stand-in for FunctionsStore — writable signals for the catalog/definitions. */
+/**
+ * Stand-in for FunctionsStore. catalog and catalogByFunction are writable
+ * signals so each test can stage a different scenario; loadCatalog/loadDefinition
+ * are mocks so we can assert on calls.
+ */
 interface FakeFunctionsStore {
   loadCatalog: Mock;
   loadDefinition: Mock;
   catalog: WritableSignal<readonly FunctionCatalogEntry[]>;
-  definitionsEntityMap: WritableSignal<Record<string, CachedDefinition>>;
+  catalogByFunction: () => Readonly<Record<string, FunctionCatalogEntry>>;
   catalogLoading: () => boolean;
   catalogError: () => string | null;
   catalogLoaded: () => boolean;
+  optionsFor: (fn: string | null) => Readonly<Record<string, UploadDefinitionOption>>;
 }
 
 function makeFakeFunctionsStore(): FakeFunctionsStore {
+  const catalog = signal<readonly FunctionCatalogEntry[]>([]);
+  // Derive catalogByFunction the same way the real store does, so the
+  // component's currentEntry() lookup behaves identically under test.
+  const byFn = computed(() => {
+    const map: Record<string, FunctionCatalogEntry> = {};
+    for (const e of catalog()) map[e.function] = e;
+    return map;
+  });
   return {
     loadCatalog: vi.fn(),
     loadDefinition: vi.fn(),
-    catalog: signal<readonly FunctionCatalogEntry[]>([]),
-    definitionsEntityMap: signal<Record<string, CachedDefinition>>({}),
+    catalog,
+    catalogByFunction: byFn,
     catalogLoading: () => false,
     catalogError: () => null,
     catalogLoaded: () => false,
+    optionsFor: (fn) => (fn ? byFn()[fn]?.options ?? {} : {}),
   };
 }
 
@@ -103,16 +104,21 @@ interface Internals {
   uploadedBy: WritableSignal<string>;
   file: WritableSignal<File | null>;
   fileDragOver: WritableSignal<boolean>;
-  optionValues: WritableSignal<Record<string, boolean>>;
-  currentDefinition: () => CachedDefinition | null;
-  definitionLoading: () => boolean;
+  optionValues: WritableSignal<Record<string, unknown>>;
+  optionErrors: WritableSignal<Record<string, string>>;
+  currentEntry: () => FunctionCatalogEntry | null;
   editableOptions: () => ReadonlyArray<{
     key: string;
     label: string;
-    defaultValue: boolean;
+    hint: string | null;
+    kind: 'boolean' | 'number' | 'text' | 'select';
+    allowedValues: readonly string[] | null;
   }>;
+  hasOptionErrors: () => boolean;
   canSubmit: () => boolean;
-  toggleOption: (key: string, checked: boolean) => void;
+  setBoolean: (key: string, value: boolean) => void;
+  setText: (key: string, value: string) => void;
+  setNumber: (key: string, raw: string) => void;
   clearFile: () => void;
   submit: () => void;
   retryCatalog: () => void;
@@ -137,13 +143,11 @@ describe('UploadPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [UploadPageComponent],
       providers: [
-        // FunctionsStore is root-provided; module-level override is enough.
         { provide: FunctionsStore, useValue: functions },
         { provide: Router, useValue: router },
         { provide: MatSnackBar, useValue: snackBar },
       ],
     });
-    // UploadStore is component-scoped — override it on the component.
     TestBed.overrideComponent(UploadPageComponent, {
       set: { providers: [{ provide: UploadStore, useValue: upload }] },
     });
@@ -165,10 +169,11 @@ describe('UploadPageComponent', () => {
       expect(functions.loadCatalog).toHaveBeenCalledTimes(1);
     });
 
-    it('feeds the selected-function signal into loadDefinition', () => {
+    it('does NOT call loadDefinition (options come from the catalog)', () => {
       render();
-      // loadDefinition is fed the signal directly (not called per-value).
-      expect(functions.loadDefinition).toHaveBeenCalledTimes(1);
+      // The component no longer needs the per-function definition fetch — the
+      // catalog carries every function's options inline.
+      expect(functions.loadDefinition).not.toHaveBeenCalled();
     });
 
     it('retryCatalog re-issues the catalog load', () => {
@@ -208,131 +213,127 @@ describe('UploadPageComponent', () => {
     });
   });
 
-  describe('currentDefinition / definitionLoading', () => {
+  describe('currentEntry', () => {
     it('is null when no function is selected', () => {
       const { c } = render();
-      expect(c.currentDefinition()).toBeNull();
-      expect(c.definitionLoading()).toBe(false);
+      expect(c.currentEntry()).toBeNull();
     });
 
-    it('resolves the cached definition entry for the selected function', () => {
+    it('resolves the catalog entry for the selected function', () => {
       const { c, detect } = render();
-      const entry: CachedDefinition = {
-        id: 'PID_RECALC',
-        definition: makeDefinition(),
-        loading: false,
-        error: null,
-      };
-      functions.definitionsEntityMap.set({ PID_RECALC: entry });
-      c.selectedFunction.set('PID_RECALC');
+      const entry = entryWithOptions('PID_RECALC', {});
+      functions.catalog.set([entry]);
+      // catalog has one entry → auto-select picks it up.
       detect();
 
-      expect(c.currentDefinition()).toBe(entry);
-    });
-
-    it('reports definitionLoading from the cached entry', () => {
-      const { c, detect } = render();
-      functions.definitionsEntityMap.set({
-        PID_RECALC: {
-          id: 'PID_RECALC',
-          definition: null,
-          loading: true,
-          error: null,
-        },
-      });
-      c.selectedFunction.set('PID_RECALC');
-      detect();
-
-      expect(c.definitionLoading()).toBe(true);
+      expect(c.currentEntry()).toBe(entry);
     });
   });
 
   describe('editableOptions', () => {
-    it('is empty when there is no definition', () => {
+    it('is empty when no function is selected', () => {
       const { c } = render();
       expect(c.editableOptions()).toEqual([]);
     });
 
-    it('includes only user-editable boolean options', () => {
+    it('filters out non-editable options', () => {
       const { c, detect } = render();
-      functions.definitionsEntityMap.set({
-        PID_RECALC: {
-          id: 'PID_RECALC',
-          definition: makeDefinition({
-            editableBool: makeOption({ label: 'Editable', userEditable: true }),
-            lockedBool: makeOption({ userEditable: false }),
-            editableString: makeOption({ type: 'string', userEditable: true }),
-          }),
-          loading: false,
-          error: null,
-        },
-      });
-      c.selectedFunction.set('PID_RECALC');
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          editable: makeOption({ userEditable: true, label: 'Visible' }),
+          locked: makeOption({ userEditable: false, label: 'Hidden' }),
+        }),
+      ]);
       detect();
 
-      // Only the editable boolean survives the filter.
-      expect(c.editableOptions().map((o) => o.key)).toEqual(['editableBool']);
+      expect(c.editableOptions().map((o) => o.key)).toEqual(['editable']);
     });
 
-    it('carries each option label and default value', () => {
+    it('maps each option type to the correct kind', () => {
       const { c, detect } = render();
-      functions.definitionsEntityMap.set({
-        PID_RECALC: {
-          id: 'PID_RECALC',
-          definition: makeDefinition({
-            flag: makeOption({ label: 'Recalc all', default: true }),
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          flag: makeOption({ type: 'boolean' }),
+          count: makeOption({ type: 'number', default: 1 }),
+          name: makeOption({ type: 'string', default: '' }),
+          mode: makeOption({
+            type: 'string',
+            default: 'A',
+            validation: { allowedValues: ['A', 'B'] },
           }),
-          loading: false,
-          error: null,
-        },
-      });
-      c.selectedFunction.set('PID_RECALC');
+        }),
+      ]);
       detect();
 
-      expect(c.editableOptions()[0]).toEqual({
-        key: 'flag',
-        label: 'Recalc all',
-        defaultValue: true,
+      const byKey = Object.fromEntries(
+        c.editableOptions().map((o) => [o.key, o.kind]),
+      );
+      expect(byKey).toEqual({
+        flag: 'boolean',
+        count: 'number',
+        name: 'text',
+        mode: 'select',
       });
+    });
+
+    it('exposes hint and allowedValues alongside the row', () => {
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          mode: makeOption({
+            type: 'string',
+            default: 'A',
+            label: 'Mode',
+            hint: 'Pick one',
+            validation: { allowedValues: ['A', 'B'] },
+          }),
+        }),
+      ]);
+      detect();
+
+      const row = c.editableOptions()[0];
+      expect(row.label).toBe('Mode');
+      expect(row.hint).toBe('Pick one');
+      expect(row.allowedValues).toEqual(['A', 'B']);
     });
   });
 
   describe('option-default seeding', () => {
-    /** Wires a definition with one boolean option defaulting to true. */
-    function seedDefinition(): void {
-      functions.definitionsEntityMap.set({
-        PID_RECALC: {
-          id: 'PID_RECALC',
-          definition: makeDefinition({
-            flag: makeOption({ default: true }),
-          }),
-          loading: false,
-          error: null,
-        },
-      });
-    }
-
-    it('seeds option values from the definition defaults when it arrives', () => {
+    it('seeds every option from its declared default when a function is selected', () => {
       const { c, detect } = render();
-      seedDefinition();
-      c.selectedFunction.set('PID_RECALC');
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          flag: makeOption({ default: true }),
+          count: makeOption({ type: 'number', default: 7 }),
+          name: makeOption({ type: 'string', default: 'hello' }),
+          // Non-editable options still get seeded so they're submitted.
+          locked: makeOption({ userEditable: false, default: false }),
+        }),
+      ]);
       detect();
 
-      expect(c.optionValues()).toEqual({ flag: true });
+      expect(c.optionValues()).toEqual({
+        flag: true,
+        count: 7,
+        name: 'hello',
+        locked: false,
+      });
     });
 
     it('does not reset a user edit once the function is already seeded', () => {
       const { c, detect } = render();
-      seedDefinition();
-      c.selectedFunction.set('PID_RECALC');
+      const entry = entryWithOptions('PID_RECALC', {
+        flag: makeOption({ default: true }),
+      });
+      functions.catalog.set([entry]);
       detect();
 
       // User unchecks the option.
-      c.toggleOption('flag', false);
+      c.setBoolean('flag', false);
       expect(c.optionValues()).toEqual({ flag: false });
 
       // An unrelated store change re-runs the effect — the edit must survive.
-      functions.definitionsEntityMap.update((m) => ({ ...m }));
+      functions.catalog.set([entry]);
       detect();
 
       expect(c.optionValues()).toEqual({ flag: false });
@@ -340,7 +341,11 @@ describe('UploadPageComponent', () => {
 
     it('clears option values when the function is unselected', () => {
       const { c, detect } = render();
-      seedDefinition();
+      // Use a 2-entry catalog so the auto-select doesn't immediately re-pick it.
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', { flag: makeOption({ default: true }) }),
+        entryWithOptions('OTHER', {}),
+      ]);
       c.selectedFunction.set('PID_RECALC');
       detect();
       expect(c.optionValues()).toEqual({ flag: true });
@@ -352,8 +357,92 @@ describe('UploadPageComponent', () => {
     });
   });
 
+  describe('option validation', () => {
+    function setupNumberOption(): Internals {
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          count: makeOption({
+            type: 'number',
+            default: 5,
+            validation: { min: 1, max: 10 },
+          }),
+        }),
+      ]);
+      detect();
+      return c;
+    }
+
+    it('rejects a number below the declared minimum', () => {
+      const c = setupNumberOption();
+      c.setNumber('count', '0');
+      expect(c.optionErrors()['count']).toMatch(/at least/i);
+      expect(c.hasOptionErrors()).toBe(true);
+    });
+
+    it('rejects a number above the declared maximum', () => {
+      const c = setupNumberOption();
+      c.setNumber('count', '99');
+      expect(c.optionErrors()['count']).toMatch(/at most/i);
+    });
+
+    it('rejects a blank number option', () => {
+      const c = setupNumberOption();
+      c.setNumber('count', '');
+      expect(c.optionErrors()['count']).toMatch(/required/i);
+    });
+
+    it('clears the error message when the value becomes valid again', () => {
+      const c = setupNumberOption();
+      c.setNumber('count', '0');
+      expect(c.hasOptionErrors()).toBe(true);
+      c.setNumber('count', '5');
+      expect(c.optionErrors()['count']).toBe('');
+      expect(c.hasOptionErrors()).toBe(false);
+    });
+
+    it('enforces maxLength on a string option', () => {
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          name: makeOption({
+            type: 'string',
+            default: '',
+            validation: { maxLength: 3 },
+          }),
+        }),
+      ]);
+      detect();
+
+      c.setText('name', 'too long');
+      expect(c.optionErrors()['name']).toMatch(/3 characters/);
+    });
+
+    it('enforces a regex pattern on a string option', () => {
+      const { c, detect } = render();
+      // Pattern requires uppercase A–Z only. Using a simple character-class
+      // pattern keeps the test resilient against any future string-escape
+      // changes in the spec authoring.
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          sku: makeOption({
+            type: 'string',
+            default: '',
+            validation: { pattern: '^[A-Z]+$' },
+          }),
+        }),
+      ]);
+      detect();
+
+      c.setText('sku', 'abc');
+      expect(c.optionErrors()['sku']).toMatch(/format/i);
+      c.setText('sku', 'ABC');
+      expect(c.optionErrors()['sku']).toBe('');
+    });
+  });
+
   describe('canSubmit', () => {
-    /** Puts the form in a fully valid state. */
+    /** Puts the form in a fully valid state (with no option errors). */
     function validForm(c: Internals): void {
       c.selectedFunction.set('PID_RECALC');
       c.file.set(aFile());
@@ -366,20 +455,26 @@ describe('UploadPageComponent', () => {
     });
 
     it('is true when function, file, and uploadedBy are all set', () => {
-      const { c } = render();
+      const { c, detect } = render();
+      functions.catalog.set([entryWithOptions('PID_RECALC', {})]);
+      detect();
       validForm(c);
       expect(c.canSubmit()).toBe(true);
     });
 
     it('is false when uploadedBy is only whitespace', () => {
-      const { c } = render();
+      const { c, detect } = render();
+      functions.catalog.set([entryWithOptions('PID_RECALC', {})]);
+      detect();
       validForm(c);
       c.uploadedBy.set('   ');
       expect(c.canSubmit()).toBe(false);
     });
 
     it('is false while an upload is in flight', () => {
-      const { c } = render();
+      const { c, detect } = render();
+      functions.catalog.set([entryWithOptions('PID_RECALC', {})]);
+      detect();
       validForm(c);
       upload.uploading.set(true);
       expect(c.canSubmit()).toBe(false);
@@ -389,6 +484,23 @@ describe('UploadPageComponent', () => {
       const { c } = render();
       c.selectedFunction.set('PID_RECALC');
       c.uploadedBy.set('jdoe');
+      expect(c.canSubmit()).toBe(false);
+    });
+
+    it('is false when any option has a validation error', () => {
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          count: makeOption({
+            type: 'number',
+            default: 5,
+            validation: { min: 1, max: 10 },
+          }),
+        }),
+      ]);
+      detect();
+      validForm(c);
+      c.setNumber('count', '99'); // out of range
       expect(c.canSubmit()).toBe(false);
     });
   });
@@ -401,12 +513,18 @@ describe('UploadPageComponent', () => {
     });
 
     it('submits the assembled upload request when the form is valid', () => {
-      const { c } = render();
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          flag: makeOption({ default: true }),
+        }),
+      ]);
+      detect();
+
       const file = aFile('upload.csv');
-      c.selectedFunction.set('PID_RECALC');
       c.file.set(file);
       c.uploadedBy.set('  jdoe  ');
-      c.optionValues.set({ flag: true });
+      c.setBoolean('flag', true);
 
       c.submit();
 
@@ -417,13 +535,40 @@ describe('UploadPageComponent', () => {
         options: { flag: true },
       });
     });
+
+    it('does not submit while any option has a validation error', () => {
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          count: makeOption({
+            type: 'number',
+            default: 5,
+            validation: { min: 1, max: 10 },
+          }),
+        }),
+      ]);
+      detect();
+      c.file.set(aFile());
+      c.uploadedBy.set('jdoe');
+      c.setNumber('count', '99');
+
+      c.submit();
+      expect(upload.submit).not.toHaveBeenCalled();
+    });
   });
 
   describe('file handling', () => {
-    it('toggleOption updates a single option value', () => {
-      const { c } = render();
-      c.optionValues.set({ a: false, b: false });
-      c.toggleOption('a', true);
+    it('setBoolean updates a single option value', () => {
+      const { c, detect } = render();
+      functions.catalog.set([
+        entryWithOptions('PID_RECALC', {
+          a: makeOption({ default: false }),
+          b: makeOption({ default: false }),
+        }),
+      ]);
+      detect();
+
+      c.setBoolean('a', true);
       expect(c.optionValues()).toEqual({ a: true, b: false });
     });
 

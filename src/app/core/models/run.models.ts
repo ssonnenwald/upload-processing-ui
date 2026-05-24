@@ -146,10 +146,7 @@ export interface UploadDefinitionView {
   readonly version: string;
   readonly displayName: string;
   readonly description: string;
-  readonly file: {
-    readonly format: string;
-    readonly namingPattern: string;
-  };
+  readonly file: UploadDefinitionFileView;
   readonly columns: ReadonlyArray<{
     readonly name: string;
     readonly header: string;
@@ -159,16 +156,54 @@ export interface UploadDefinitionView {
   readonly options: Readonly<Record<string, UploadDefinitionOption>>;
 }
 
+export interface UploadDefinitionFileView {
+  readonly format: string;
+  readonly namingPattern: string;
+}
+
+/**
+ * Definition of a single user-editable option on an upload form. Mirrors the JSON
+ * shape served by the API, which is in turn derived from the embedded definition
+ * file (OptionDef + OptionValidation on the server).
+ *
+ * The `default` value is loosely typed (`unknown`) because it varies by `type`:
+ *  - boolean → boolean
+ *  - number  → number
+ *  - string  → string
+ *
+ * Components should narrow based on `type` before using the value.
+ */
 export interface UploadDefinitionOption {
   readonly type: 'boolean' | 'string' | 'number';
   readonly default: unknown;
   readonly userEditable: boolean;
   readonly label: string;
+  /** Optional helper text shown beneath the control. */
+  readonly hint?: string | null;
+  /** Optional client-side validation rules (min/max, maxLength/pattern, allowedValues). */
+  readonly validation?: UploadDefinitionOptionValidation | null;
 }
 
-/** Catalog entry for the dropdown on the upload page. */
+export interface UploadDefinitionOptionValidation {
+  readonly min?: number | null;
+  readonly max?: number | null;
+  readonly maxLength?: number | null;
+  readonly pattern?: string | null;
+  /** Non-empty list → render as a dropdown (string options) instead of free text. */
+  readonly allowedValues?: readonly string[] | null;
+}
+
+/**
+ * Catalog entry for the dropdown on the upload page.
+ *
+ * The user-editable options come embedded so the UI can render the dropdown AND the
+ * option controls from a single GET /api/functions call — no per-selection follow-up
+ * fetch needed.
+ */
 export interface FunctionCatalogEntry {
   readonly function: string;
   readonly displayName: string;
   readonly description: string;
+  readonly file: UploadDefinitionFileView;
+  readonly options: Readonly<Record<string, UploadDefinitionOption>>;
 }

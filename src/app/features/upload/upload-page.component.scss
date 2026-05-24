@@ -116,7 +116,7 @@
 .upload__options {
   display: flex;
   flex-direction: column;
-  gap: var(--up-space-2);
+  gap: var(--up-space-3);
   padding: var(--up-space-3) var(--up-space-4);
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: var(--up-radius);
@@ -130,6 +130,30 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
+}
+
+// One row per option. Booleans pack tightly; the form-field-based variants
+// (number/text/select) want a touch more breathing room beneath them so
+// hints/errors don't crowd the next row.
+.upload__option-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--up-space-1);
+}
+
+// Form field used for non-boolean options. Full width so the labels and hints
+// line up with the other inputs in the form.
+.upload__option-field {
+  width: 100%;
+}
+
+// Hint shown directly under a boolean option's label — mat-checkbox doesn't
+// have a built-in mat-hint slot, so we render our own.
+.upload__option-hint {
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  margin-left: 32px; // align with the checkbox label text
+  line-height: 1.4;
 }
 
 .upload__options-loading {

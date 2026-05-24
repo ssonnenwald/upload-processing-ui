@@ -40,8 +40,8 @@
               </mat-option>
             }
           </mat-select>
-          @if (currentDefinition()?.definition; as def) {
-            <mat-hint>{{ def.description }}</mat-hint>
+          @if (currentEntry(); as entry) {
+            <mat-hint>{{ entry.description }}</mat-hint>
           }
         </mat-form-field>
 
@@ -102,32 +102,92 @@
                 />
               </label>
             </div>
-            @if (currentDefinition()?.definition; as def) {
+            @if (currentEntry(); as entry) {
               <div class="upload__hint">
-                Expected: {{ def.file.format }} matching
-                <code>{{ def.file.namingPattern }}</code>
+                Expected: {{ entry.file.format }} matching
+                <code>{{ entry.file.namingPattern }}</code>
               </div>
             }
           }
         </div>
 
         <!-- ─── Options panel ───────────────────────────────────────────── -->
-        @if (definitionLoading()) {
-          <div class="upload__options-loading">
-            <mat-progress-bar mode="indeterminate" />
-            <span>Loading options…</span>
-          </div>
-        } @else if (editableOptions().length > 0) {
+        @if (editableOptions().length > 0) {
           <fieldset class="upload__options">
             <legend>Options</legend>
             @for (opt of editableOptions(); track opt.key) {
-              <mat-checkbox
-                [checked]="optionValues()[opt.key]"
-                (change)="toggleOption(opt.key, $event.checked)"
-                [disabled]="upload.uploading()"
-              >
-                {{ opt.label }}
-              </mat-checkbox>
+              <div class="upload__option-row">
+                @switch (opt.kind) {
+                  @case ('boolean') {
+                    <mat-checkbox
+                      [checked]="!!optionValues()[opt.key]"
+                      (change)="setBoolean(opt.key, $event.checked)"
+                      [disabled]="upload.uploading()"
+                    >
+                      {{ opt.label }}
+                    </mat-checkbox>
+                    @if (opt.hint) {
+                      <div class="upload__option-hint">{{ opt.hint }}</div>
+                    }
+                  }
+                  @case ('number') {
+                    <mat-form-field appearance="outline" class="upload__option-field">
+                      <mat-label>{{ opt.label }}</mat-label>
+                      <input
+                        matInput
+                        type="number"
+                        [ngModel]="optionValues()[opt.key]"
+                        (ngModelChange)="setNumber(opt.key, $event)"
+                        [min]="opt.validation?.min ?? null"
+                        [max]="opt.validation?.max ?? null"
+                        [disabled]="upload.uploading()"
+                      />
+                      @if (optionErrors()[opt.key]) {
+                        <mat-error>{{ optionErrors()[opt.key] }}</mat-error>
+                      } @else if (opt.hint) {
+                        <mat-hint>{{ opt.hint }}</mat-hint>
+                      }
+                    </mat-form-field>
+                  }
+                  @case ('select') {
+                    <mat-form-field appearance="outline" class="upload__option-field">
+                      <mat-label>{{ opt.label }}</mat-label>
+                      <mat-select
+                        [ngModel]="optionValues()[opt.key]"
+                        (ngModelChange)="setText(opt.key, $event)"
+                        [disabled]="upload.uploading()"
+                      >
+                        @for (v of opt.allowedValues; track v) {
+                          <mat-option [value]="v">{{ v }}</mat-option>
+                        }
+                      </mat-select>
+                      @if (optionErrors()[opt.key]) {
+                        <mat-error>{{ optionErrors()[opt.key] }}</mat-error>
+                      } @else if (opt.hint) {
+                        <mat-hint>{{ opt.hint }}</mat-hint>
+                      }
+                    </mat-form-field>
+                  }
+                  @case ('text') {
+                    <mat-form-field appearance="outline" class="upload__option-field">
+                      <mat-label>{{ opt.label }}</mat-label>
+                      <input
+                        matInput
+                        type="text"
+                        [ngModel]="optionValues()[opt.key]"
+                        (ngModelChange)="setText(opt.key, $event)"
+                        [maxlength]="opt.validation?.maxLength ?? null"
+                        [disabled]="upload.uploading()"
+                      />
+                      @if (optionErrors()[opt.key]) {
+                        <mat-error>{{ optionErrors()[opt.key] }}</mat-error>
+                      } @else if (opt.hint) {
+                        <mat-hint>{{ opt.hint }}</mat-hint>
+                      }
+                    </mat-form-field>
+                  }
+                }
+              </div>
             }
           </fieldset>
         }

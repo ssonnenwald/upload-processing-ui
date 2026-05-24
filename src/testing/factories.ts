@@ -55,6 +55,8 @@ export function makeFunctionEntry(
     function: 'PID_RECALC',
     displayName: 'PID Recalculation',
     description: 'Recalculates PID values.',
+    file: { format: 'csv', namingPattern: '*.csv' },
+    options: {},
     ...over,
   };
 }

@@ -112,6 +112,48 @@ describe('FunctionsStore', () => {
     });
   });
 
+  describe('catalog selectors', () => {
+    it('indexes catalog entries by function name', () => {
+      const a = makeFunctionEntry({ function: 'PID_RECALC' });
+      const b = makeFunctionEntry({ function: 'OTHER' });
+      api.listFunctions.mockReturnValue(of([a, b]));
+
+      store.loadCatalog();
+
+      expect(store.catalogByFunction()).toEqual({
+        PID_RECALC: a,
+        OTHER: b,
+      });
+    });
+
+    it('returns the options dictionary for a known function', () => {
+      const entry = makeFunctionEntry({
+        function: 'PID_RECALC',
+        options: {
+          flagA: {
+            type: 'boolean',
+            default: true,
+            userEditable: true,
+            label: 'Flag A',
+          },
+        },
+      });
+      api.listFunctions.mockReturnValue(of([entry]));
+
+      store.loadCatalog();
+
+      expect(store.optionsFor('PID_RECALC')).toEqual(entry.options);
+    });
+
+    it('returns an empty object for an unknown or null function', () => {
+      api.listFunctions.mockReturnValue(of([makeFunctionEntry()]));
+      store.loadCatalog();
+
+      expect(store.optionsFor('NOPE')).toEqual({});
+      expect(store.optionsFor(null)).toEqual({});
+    });
+  });
+
   describe('loadDefinition', () => {
     it('ignores a null selection without calling the API', () => {
       store.loadDefinition(null);

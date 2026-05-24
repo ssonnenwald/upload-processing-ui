@@ -19,6 +19,7 @@ import { tapResponse } from '@ngrx/operators';
 import { RunsApi } from '../api/runs-api.service';
 import {
   FunctionCatalogEntry,
+  UploadDefinitionOption,
   UploadDefinitionView,
 } from '../models/run.models';
 import { friendlyApiError } from '@core/api/friendly-error';
@@ -60,6 +61,12 @@ const initialState: FunctionsState = {
  *
  * Definitions are cached forever for the session — they're tied to the backend
  * build and only change on redeploy.
+ *
+ * The catalog now carries each function's user-editable options inline
+ * (FunctionCatalogEntry.options), so pages that only need to render the
+ * option controls don't have to call loadDefinition. The full UploadDefinitionView
+ * (columns, version, file shape) is still available via loadDefinition for
+ * callers that need it.
  */
 export const FunctionsStore = signalStore(
   { providedIn: 'root' },
@@ -70,6 +77,19 @@ export const FunctionsStore = signalStore(
     catalogLoaded: computed(
       () => store.catalog().length > 0 || store.catalogError() !== null,
     ),
+
+    /**
+     * Map of function name → catalog entry, for O(1) lookup by name without
+     * scanning the array on every selection change. Built lazily off the
+     * catalog signal, so it only recomputes when the catalog itself changes.
+     */
+    catalogByFunction: computed(() => {
+      const map: Record<string, FunctionCatalogEntry> = {};
+      for (const entry of store.catalog()) {
+        map[entry.function] = entry;
+      }
+      return map;
+    }),
   })),
   withMethods((store, api = inject(RunsApi)) => ({
     /**
@@ -114,28 +134,30 @@ export const FunctionsStore = signalStore(
     ),
 
     /**
-     * Load a single function's definition, with per-function caching.
+     * Returns the options dictionary for a given function from the catalog,
+     * or an empty object if the function isn't known. Pure read — does not
+     * trigger a fetch. Components should ensure loadCatalog() has been called
+     * (catalogLoaded() / catalogLoading()) before relying on the result.
+     */
+    optionsFor(fn: string | null): Readonly<Record<string, UploadDefinitionOption>> {
+      if (!fn) return {};
+      return store.catalogByFunction()[fn]?.options ?? {};
+    },
+
+    /**
+     * Load a single function's full definition (columns, version, etc.), with
+     * per-function caching. The upload page does NOT need this any more — the
+     * options it renders come from the catalog directly. Kept on the store for
+     * future callers (e.g. an admin page that wants to show column hints).
      *
-     * Accepts `string | null` so it can be fed the selected-function signal
-     * directly — `this.functions.loadDefinition(selectedFunctionSignal)`.
-     * Feeding the signal (rather than calling this from inside an effect)
-     * is important: rxMethod subscribes to the signal once and re-runs only
-     * when the value actually changes. Calling it from an effect instead
-     * makes that effect depend on the store's entity map — which this method
-     * writes to — creating a write/re-run feedback loop that fires the API
-     * endlessly.
-     *
-     * A `null` selection is filtered out here. Already-loaded or in-flight
-     * definitions short-circuit before any request, so a repeated emission
-     * of the same function name is a genuine no-op.
+     * Accepts `string | null` so it can be fed a signal directly. A `null`
+     * selection is filtered out, and already-loaded or in-flight definitions
+     * short-circuit before any request, so a repeated emission of the same
+     * function name is a genuine no-op.
      */
     loadDefinition: rxMethod<string | null>(
       pipe(
-        // Ignore the "nothing selected" state.
         filter((fn): fn is string => fn !== null && fn.length > 0),
-        // Skip functions whose definition is already cached or being fetched.
-        // This is a real short-circuit: when it drops the emission, the
-        // switchMap below never runs, so no duplicate request is issued.
         filter((fn) => {
           const existing = store.definitionsEntityMap()[fn];
           return !existing?.definition && !existing?.loading;
