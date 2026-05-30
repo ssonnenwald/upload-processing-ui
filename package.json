@@ -37,6 +37,7 @@
     "@eslint/js": "^10.0.1",
     "@ngrx/eslint-plugin": "^21.1.0",
     "@vitest/coverage-v8": "^4.0.0",
+    "@vitest/ui": "^4.1.7",
     "angular-eslint": "21.4.0",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
