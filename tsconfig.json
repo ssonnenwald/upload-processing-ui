@@ -26,9 +26,5 @@
       "@testing/*": ["./src/testing/*"]
     }
   },
-  "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true
-  }
+  "angularCompilerOptions": {}
 }
