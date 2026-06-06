@@ -21,7 +21,7 @@ Angular apps. Write functional, accessible, strictly-typed code.
 - `features/*` and `shared/components/*` use legacy `*.component.ts` filenames —
   keep that convention there. `core/layout` uses the no-suffix style — keep that.
 - Every component is three files sharing a base name (`.ts`, `.html`, `.scss`)
-  with `templateUrl`/`styleUrls`; never inline template/styles. SCSS by default.
+  with `templateUrl`/`styleUrl`; never inline template/styles. SCSS by default.
 - Class names carry no `Component`/`Service` suffix (e.g. `RunsApi`, `UploadStore`).
 
 ## TypeScript

@@ -8,6 +8,7 @@ import { Service, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '@env/environment';
 import {
+  ChunkDetailsResponse,
   FunctionCatalogEntry,
   RunDetailsResponse,
   RunListItem,
@@ -53,6 +54,21 @@ export class RunsApi {
   getRun(runId: string): Observable<RunDetailsResponse> {
     return this.http.get<RunDetailsResponse>(
       `${this.base}/api/runs/${encodeURIComponent(runId)}`,
+    );
+  }
+
+  /**
+   * GET /api/runs/{runId}/chunks/{chunkSk}/details — per-row outcomes for one chunk.
+   * Returns every row; the drill-down dialog filters by status client-side.
+   */
+  getChunkDetails(
+    runId: string,
+    chunkSk: string,
+  ): Observable<ChunkDetailsResponse> {
+    return this.http.get<ChunkDetailsResponse>(
+      `${this.base}/api/runs/${encodeURIComponent(runId)}/chunks/${encodeURIComponent(
+        chunkSk,
+      )}/details`,
     );
   }
 

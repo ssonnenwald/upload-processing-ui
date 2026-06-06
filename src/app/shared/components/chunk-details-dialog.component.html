@@ -1,0 +1,95 @@
+<h2 mat-dialog-title class="cd__title">
+  <span class="cd__title-text">Chunk {{ data.chunk.chunkIndex }} detail</span>
+  <span class="cd__range">
+    rows {{ data.chunk.startingRow }}–{{ data.chunk.endingRow }}
+  </span>
+  <button
+    mat-icon-button
+    class="cd__close"
+    (click)="close()"
+    aria-label="Close chunk detail"
+  >
+    <mat-icon>close</mat-icon>
+  </button>
+</h2>
+
+<mat-dialog-content class="cd__content">
+  @if (store.loading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (store.error(); as err) {
+    <div class="cd__notice cd__notice--error">
+      <mat-icon>error</mat-icon>
+      <span>{{ err }}</span>
+    </div>
+  } @else if (!store.loading() && !store.detailsAvailable()) {
+    <div class="cd__notice cd__empty">
+      <mat-icon>info</mat-icon>
+      <span>{{
+        store.detailsMessage() ??
+          'No per-row detail is available for this chunk.'
+      }}</span>
+    </div>
+  } @else if (!store.loading()) {
+    <mat-button-toggle-group
+      class="cd__filter"
+      [value]="store.filter()"
+      (change)="setFilter($event.value)"
+      aria-label="Filter rows by status"
+    >
+      <mat-button-toggle value="all">
+        All ({{ store.totalRows() }})
+      </mat-button-toggle>
+      <mat-button-toggle value="succeeded">
+        OK ({{ store.succeeded() }})
+      </mat-button-toggle>
+      <mat-button-toggle value="failedValid">
+        Failed ({{ store.failedValid() }})
+      </mat-button-toggle>
+      <mat-button-toggle value="invalid">
+        Invalid ({{ store.invalid() }})
+      </mat-button-toggle>
+      <mat-button-toggle value="skipped">
+        Skipped ({{ store.skipped() }})
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+
+    @if (store.filteredRows().length === 0) {
+      <p class="cd__no-rows">No rows match this filter.</p>
+    } @else {
+      <div class="cd__grid cd__head">
+        <span>Row</span>
+        <span>Status</span>
+        <span>Reason</span>
+      </div>
+
+      <cdk-virtual-scroll-viewport
+        class="cd__viewport"
+        [itemSize]="rowHeight"
+        minBufferPx="440"
+        maxBufferPx="880"
+      >
+        <div
+          *cdkVirtualFor="let r of store.filteredRows(); trackBy: trackRow"
+          class="cd__grid cd__vrow"
+          [style.height.px]="rowHeight"
+        >
+          <span class="cd__row-num">{{ r.row }}</span>
+          <span>
+            <span class="cd__pill" [attr.data-status]="r.status">
+              {{ r.status }}
+            </span>
+          </span>
+          <span class="cd__reason">
+            @if (r.reason) {
+              <span [matTooltip]="r.reason">{{ r.reason }}</span>
+            } @else {
+              <span class="cd__muted">—</span>
+            }
+          </span>
+        </div>
+      </cdk-virtual-scroll-viewport>
+    }
+  }
+</mat-dialog-content>

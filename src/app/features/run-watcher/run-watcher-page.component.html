@@ -39,13 +39,19 @@
       aria-live="polite"
     >
       <mat-icon class="watcher__status-icon">
-        {{ run.isTerminal() ? 'check_circle' : (hubState() === 'reconnecting' ? 'sync_problem' : 'sync') }}
+        {{
+          run.isTerminal()
+            ? 'check_circle'
+            : hubState() === 'reconnecting'
+              ? 'sync_problem'
+              : 'sync'
+        }}
       </mat-icon>
       <span>{{ statusMessage() }}</span>
     </div>
 
     <app-run-summary-card [run]="r" />
 
-    <app-chunks-table [chunks]="r.chunks" />
+    <app-chunks-table [chunks]="r.chunks" [runId]="r.runId" />
   }
 </div>

@@ -6,7 +6,7 @@ description: >-
   an SCSS or CSS stylesheet — all sharing the same hyphenated base name (for
   example user-profile.ts, user-profile.html, user-profile.scss), with NO
   .component suffix. The component decorator must reference the template and
-  styles via templateUrl and styleUrls, never via inline template or styles.
+  styles via templateUrl and styleUrl, never via inline template or styles.
   Use this skill whenever the user asks for an Angular component, directive,
   or any code that includes a Component decorator — including new components,
   refactors, examples, demos, and snippets. Apply even for tiny components
@@ -22,10 +22,10 @@ tags:
   - file-structure
   - conventions
 globs:
-  - "**/*.ts"
-  - "**/*.html"
-  - "**/*.scss"
-  - "**/*.css"
+  - '**/*.ts'
+  - '**/*.html'
+  - '**/*.scss'
+  - '**/*.css'
 ---
 
 # Angular File Separation (Angular 22+)
@@ -51,7 +51,7 @@ import { Component, input } from '@angular/core';
 @Component({
   selector: 'app-user-profile',
   templateUrl: './user-profile.html',
-  styleUrls: ['./user-profile.scss'],
+  styleUrl: './user-profile.scss',
 })
 export class UserProfile {
   readonly userId = input.required<string>();
@@ -81,9 +81,17 @@ export class UserProfile {
 @Component({
   selector: 'app-user-profile',
   template: `<div>{{ userId() }}</div>`,
-  styles: [`div { color: red; }`],
+  styles: [
+    `
+      div {
+        color: red;
+      }
+    `,
+  ],
 })
-export class UserProfile { /* ... */ }
+export class UserProfile {
+  /* ... */
+}
 ```
 
 ### ❌ Do not use the legacy `.component` suffix in file names
@@ -99,10 +107,14 @@ user-profile.component.scss
 
 ```ts
 // ❌ Wrong — legacy class naming
-export class UserProfileComponent { /* ... */ }
+export class UserProfileComponent {
+  /* ... */
+}
 
 // ✅ Right — Angular 22+
-export class UserProfile { /* ... */ }
+export class UserProfile {
+  /* ... */
+}
 ```
 
 ## Why
@@ -141,7 +153,7 @@ the SCSS file:
 @Component({
   selector: 'app-user-profile',
   templateUrl: './user-profile.html',
-  styleUrls: ['./user-profile.scss'],  // always .scss by default
+  styleUrl: './user-profile.scss',
 })
 export class UserProfile {}
 ```
@@ -170,12 +182,11 @@ base name:
 @Component({
   selector: 'app-user-profile',
   templateUrl: './user-profile.html',
-  styleUrls: [
-    './user-profile-settings.scss',
-    './user-profile-subscription.scss',
-  ],
+  styleUrl: './user-profile.scss',
 })
-export class UserProfile { /* ... */ }
+export class UserProfile {
+  /* ... */
+}
 ```
 
 ## Applies to

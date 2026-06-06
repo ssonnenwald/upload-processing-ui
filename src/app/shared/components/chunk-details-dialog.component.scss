@@ -1,0 +1,174 @@
+.cd__title {
+  display: flex;
+  align-items: center;
+  gap: var(--up-space-2);
+  margin: 0;
+
+  .cd__title-text {
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+.cd__range {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.cd__close {
+  margin-left: auto;
+}
+
+// Material's .mat-mdc-dialog-content sets overflow: auto (0,1,0) and loads after
+// component styles, so a plain .cd__content rule loses the cascade tie and the
+// phantom horizontal scrollbar returns. Qualifying with the Material class
+// raises specificity to (0,2,0) so overflow-x: hidden holds regardless of load
+// order. With the rows ellipsizing (below) nothing functional is clipped.
+//
+// NO min-width here. The dialog's width is fixed at open time
+// (width: 'min(900px, 95vw)' in ChunksTableComponent.openDetails), so a content
+// min-width is redundant — and actively harmful: min(680px, 86vw) could force
+// .cd__content wider than the dialog surface, pushing the viewport's right edge
+// (where the 14px scrollbar lane lives) past the surface, where the surface's
+// own overflow-x: hidden (.chunk-detail-panel rule in styles.scss) clipped it
+// off. The bar painted fine the whole time — it was scrolled out of view. That
+// clip is why earlier attempts to colour the bar appeared to do nothing.
+.cd__content.mat-mdc-dialog-content {
+  display: block;
+  overflow-x: hidden;
+}
+
+// Keep Material's inline-flex on the group so it hugs its five toggles as a
+// proper segmented control. flex-wrap is retained as a safety net: it applies
+// to inline-flex too, so on a very narrow dialog the chips wrap to a second
+// line instead of being clipped.
+mat-button-toggle-group.cd__filter {
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin: var(--up-space-2) 0 var(--up-space-3);
+}
+
+.cd__notice {
+  display: flex;
+  align-items: center;
+  gap: var(--up-space-2);
+  padding: var(--up-space-3) 0;
+
+  &--error {
+    color: var(--up-status-failed);
+  }
+}
+
+.cd__empty {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.cd__no-rows {
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+  padding: var(--up-space-3) 0;
+  margin: 0;
+}
+
+.cd__grid {
+  display: grid;
+  grid-template-columns: 72px 132px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--up-space-2);
+  padding: 0 var(--up-space-1);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.cd__head {
+  height: 36px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mat-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cd__viewport {
+  height: min(440px, 52vh);
+  width: 100%;
+  scrollbar-gutter: stable;
+
+  // The CDK viewport is the scroll container.
+  &.cdk-virtual-scroll-viewport {
+    overflow-x: hidden;
+    overflow-y: scroll;
+  }
+
+  .cdk-virtual-scroll-content-wrapper {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  // Standard CSS Scrollbars properties, applied for every browser. Setting
+  // scrollbar-color to explicit (non-auto) values opts the element out of the
+  // OS overlay scrollbar (the auto-hiding, transparent-at-rest Windows 11 bar)
+  // and forces a classic, always-painted bar in Chromium 121+, Edge, and
+  // Firefox. var() resolves correctly here because these apply to the real
+  // element, not a pseudo-element. (Safari < 18.2 ignores these and keeps its
+  // native bar, which is acceptable.)
+  scrollbar-width: thin;
+  scrollbar-color: var(--mat-sys-outline) transparent;
+}
+
+.cd__vrow {
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.cd__row-num {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.cd__reason {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.cd__muted {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.cd__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  border-radius: 999px;
+  color: white;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  background: var(--pill-bg, var(--up-status-pending));
+
+  &[data-status='succeeded'] {
+    --pill-bg: var(--up-status-succeeded);
+  }
+
+  &[data-status='failedValid'] {
+    --pill-bg: var(--up-status-failed);
+  }
+
+  &[data-status='invalid'] {
+    --pill-bg: var(--up-status-completedwitherrors);
+  }
+
+  &[data-status='skipped'] {
+    --pill-bg: var(--up-status-pending);
+  }
+}

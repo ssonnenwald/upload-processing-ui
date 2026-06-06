@@ -1,20 +1,32 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { ComponentRef } from '@angular/core';
+import { of } from 'rxjs';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ChunksTableComponent } from './chunks-table.component';
+import { ChunkDetailsDialogComponent } from './chunk-details-dialog.component';
 import type { ChunkSummary } from '@core/models/run.models';
 import { makeChunk } from '@testing/factories';
 
 describe('ChunksTableComponent', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [ChunksTableComponent] });
+    vi.clearAllMocks();
+    TestBed.configureTestingModule({
+      imports: [ChunksTableComponent],
+      providers: [provideNoopAnimations()],
+    });
   });
 
   /** Creates the component with the given chunks and returns the root element. */
-  function render(chunks: readonly ChunkSummary[]): HTMLElement {
+  function render(
+    chunks: readonly ChunkSummary[],
+    runId = 'RUN#1',
+  ): HTMLElement {
     const fixture = TestBed.createComponent(ChunksTableComponent);
     const ref = fixture.componentRef as ComponentRef<ChunksTableComponent>;
     ref.setInput('chunks', chunks);
+    ref.setInput('runId', runId);
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
   }
@@ -22,6 +34,7 @@ describe('ChunksTableComponent', () => {
   it('creates', () => {
     const fixture = TestBed.createComponent(ChunksTableComponent);
     fixture.componentRef.setInput('chunks', []);
+    fixture.componentRef.setInput('runId', 'RUN#1');
     expect(fixture.componentInstance).toBeTruthy();
   });
 
@@ -124,6 +137,37 @@ describe('ChunksTableComponent', () => {
       const el = render([makeChunk({ errorSummary: null })]);
       const cell = el.querySelector('.chunks__error-cell');
       expect(cell?.textContent?.trim()).toBe('');
+    });
+  });
+
+  describe('drill-in', () => {
+    it('opens the chunk details dialog with the runId, chunk, and panel class', () => {
+      const chunk = makeChunk({ chunkSk: 'CHUNK#0007', chunkIndex: 7 });
+      const fixture = TestBed.createComponent(ChunksTableComponent);
+      const ref = fixture.componentRef as ComponentRef<ChunksTableComponent>;
+      ref.setInput('chunks', [chunk]);
+      ref.setInput('runId', 'RUN#42');
+      fixture.detectChanges();
+
+      // MatDialogModule provides MatDialog at the component-injector level, so
+      // resolve the SAME instance the component injected — the root TestBed
+      // instance is a different object the component never touches.
+      const dialog = fixture.debugElement.injector.get(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as MatDialogRef<unknown>);
+
+      const el = fixture.nativeElement as HTMLElement;
+      el.querySelector<HTMLButtonElement>('.chunks__details-btn')?.click();
+
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      const [component, config] = openSpy.mock.calls[0];
+      expect(component).toBe(ChunkDetailsDialogComponent);
+      expect(config?.data).toEqual({ runId: 'RUN#42', chunk });
+      // The panel class is what lets the global rule clip the surface's
+      // phantom horizontal scrollbar — assert it's wired so the fix can't
+      // silently regress if someone edits openDetails.
+      expect(config?.panelClass).toBe('chunk-detail-panel');
     });
   });
 });

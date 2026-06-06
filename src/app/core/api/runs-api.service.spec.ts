@@ -9,6 +9,7 @@ import {
 import { environment } from '@env/environment';
 import { RunsApi, UploadProgress } from './runs-api.service';
 import type {
+  ChunkDetailsResponse,
   FunctionCatalogEntry,
   RunDetailsResponse,
   RunListItem,
@@ -19,6 +20,7 @@ import {
   makeFunctionEntry,
   makeRunListItem,
   makeRunDetails,
+  makeChunkDetails,
   makeSummary,
   makeDefinition,
   makeUploadResponse,
@@ -114,6 +116,41 @@ describe('RunsApi', () => {
       api.getRun('RUN#abc').subscribe((r) => (result = r));
       httpMock
         .expectOne(`${BASE}/api/runs/${encodeURIComponent('RUN#abc')}`)
+        .flush(payload);
+
+      expect(result).toEqual(payload);
+    });
+  });
+
+  describe('getChunkDetails', () => {
+    it('GETs the chunk details URL with both segments URL-encoded', () => {
+      const runId = 'RUN#2026-05-17T22:23:52Z#0b32df50';
+      const chunkSk = 'CHUNK#0001';
+
+      api.getChunkDetails(runId, chunkSk).subscribe();
+
+      const req = httpMock.expectOne(
+        `${BASE}/api/runs/${encodeURIComponent(runId)}/chunks/${encodeURIComponent(
+          chunkSk,
+        )}/details`,
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush(makeChunkDetails({ runId, chunkSk }));
+    });
+
+    it('returns the response body', () => {
+      const payload = makeChunkDetails({ chunkSk: 'CHUNK#0002' });
+      let result: ChunkDetailsResponse | undefined;
+
+      api
+        .getChunkDetails('RUN#abc', 'CHUNK#0002')
+        .subscribe((r) => (result = r));
+      httpMock
+        .expectOne(
+          `${BASE}/api/runs/${encodeURIComponent('RUN#abc')}/chunks/${encodeURIComponent(
+            'CHUNK#0002',
+          )}/details`,
+        )
         .flush(payload);
 
       expect(result).toEqual(payload);

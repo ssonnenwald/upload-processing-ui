@@ -18,6 +18,8 @@
  * specific value already pass it as an override, so they are unaffected.
  */
 import type {
+  ChunkDetailsResponse,
+  ChunkRowOutcome,
   ChunkSummary,
   ChunkUpdate,
   FunctionCatalogEntry,
@@ -105,6 +107,38 @@ export function makeChunk(over: Partial<ChunkSummary> = {}): ChunkSummary {
     errorSummary: null,
     startedAt: '2026-05-17T22:24:00Z',
     completedAt: '2026-05-17T22:24:30Z',
+    ...over,
+  };
+}
+
+export function makeChunkRowOutcome(
+  over: Partial<ChunkRowOutcome> = {},
+): ChunkRowOutcome {
+  return {
+    row: 1,
+    status: 'succeeded',
+    reason: null,
+    ...over,
+  };
+}
+
+export function makeChunkDetails(
+  over: Partial<ChunkDetailsResponse> = {},
+): ChunkDetailsResponse {
+  return {
+    runId: 'RUN#1',
+    chunkSk: 'CHUNK#0001',
+    chunkIndex: 1,
+    startingRow: 1,
+    endingRow: 50,
+    status: 'Succeeded',
+    detailsAvailable: true,
+    detailsMessage: null,
+    succeeded: 48,
+    failedValid: 1,
+    invalid: 1,
+    skipped: 0,
+    rows: [],
     ...over,
   };
 }

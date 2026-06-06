@@ -207,3 +207,44 @@ export interface FunctionCatalogEntry {
   readonly file: UploadDefinitionFileView;
   readonly options: Readonly<Record<string, UploadDefinitionOption>>;
 }
+
+// -----------------------------------------------------------------------------
+// Chunk drill-down — per-row outcomes for a single chunk.
+// Mirrors ChunkRowOutcome / ChunkDetailsResponse in
+// UploadProcessing.Api/Contracts/ChunkDetailsContracts.cs.
+// -----------------------------------------------------------------------------
+
+/** Per-row outcome status. Lower-cased to match the wire format from the API. */
+export type ChunkRowStatus = 'succeeded' | 'failedValid' | 'invalid' | 'skipped';
+
+/** Status filter applied in the drill-down dialog. 'all' shows every row. */
+export type ChunkRowFilter = ChunkRowStatus | 'all';
+
+export interface ChunkRowOutcome {
+  readonly row: number;
+  readonly status: ChunkRowStatus;
+  /** Validation message or handler failure detail; null for clean successes. */
+  readonly reason: string | null;
+}
+
+/** GET /api/runs/{runId}/chunks/{chunkSk}/details response. */
+export interface ChunkDetailsResponse {
+  readonly runId: string;
+  readonly chunkSk: string;
+  readonly chunkIndex: number;
+  readonly startingRow: number;
+  readonly endingRow: number;
+  readonly status: ChunkStatus;
+  /**
+   * False when no per-row detail exists — the chunk failed before writing
+   * results, or the detail file aged out of the results bucket. When false,
+   * `rows` is empty and `detailsMessage` explains why.
+   */
+  readonly detailsAvailable: boolean;
+  readonly detailsMessage: string | null;
+  readonly succeeded: number;
+  readonly failedValid: number;
+  readonly invalid: number;
+  readonly skipped: number;
+  readonly rows: readonly ChunkRowOutcome[];
+}

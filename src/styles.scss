@@ -4,14 +4,16 @@
 // entire app via CSS custom properties so components stay style-clean.
 html {
   color-scheme: light;
-  @include mat.theme((
-    color: (
-      primary: mat.$azure-palette,
-      tertiary: mat.$blue-palette,
-    ),
-    typography: Roboto,
-    density: 0,
-  ));
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -30,18 +32,19 @@ html {
   --up-shell-max-width: 1280px;
 
   // Status colors — mapped to the backend status enum strings.
-  --up-status-pending:             #6b7280;  // gray
-  --up-status-chunking:            #0891b2;  // cyan
-  --up-status-inprogress:          #2563eb;  // blue
-  --up-status-completed:           #16a34a;  // green
-  --up-status-completedwitherrors: #d97706;  // amber
-  --up-status-failed:              #dc2626;  // red
+  --up-status-pending: #6b7280; // gray
+  --up-status-chunking: #0891b2; // cyan
+  --up-status-inprogress: #2563eb; // blue
+  --up-status-completed: #16a34a; // green
+  --up-status-completedwitherrors: #d97706; // amber
+  --up-status-failed: #dc2626; // red
 
   // Chunk statuses use the same palette by name.
   --up-status-succeeded: var(--up-status-completed);
 }
 
-html, body {
+html,
+body {
   height: 100%;
   margin: 0;
   font-family: Roboto, 'Helvetica Neue', sans-serif;
@@ -49,11 +52,27 @@ html, body {
   color: var(--mat-sys-on-surface);
 }
 
-a { color: inherit; }
+a {
+  color: inherit;
+}
 
 // Utility — replace Material's heavier icon font with the variable Symbols font
 // so the bundled CSS doesn't fight the typography token.
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
   vertical-align: middle;
+}
+
+/* Material sets overflow-y: auto on the dialog surface, which promotes
+   overflow-x to auto and yields a phantom horizontal scrollbar on this dialog.
+   The surface is an ancestor of <app-chunk-details-dialog>, so the component's
+   encapsulated styles can't reach it. panelClass on dialog.open lands this
+   class on the overlay pane (an ancestor of the surface), so this clips x
+   overflow while leaving vertical scrolling intact. */
+.chunk-detail-panel .mat-mdc-dialog-surface {
+  overflow-x: hidden;
 }

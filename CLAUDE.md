@@ -25,7 +25,7 @@ for the AWS upload-processing pipeline.
 ## This project's specifics
 
 - Components are three files (`.ts`/`.html`/`.scss`, SCSS default) via
-  `templateUrl`/`styleUrls`. Match the existing area: `features/*` and
+  `templateUrl`/`styleUrl`. Match the existing area: `features/*` and
   `shared/components/*` use legacy `*.component.ts` filenames; `core/layout` uses
   the no-suffix style. Class names carry no `Component`/`Service` suffix.
 - State in NgRx SignalStore (`rxMethod` + `tapResponse`); local UI state in signals.
