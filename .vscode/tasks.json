@@ -1,5 +1,4 @@
 {
-  // For more information, visit: https://go.microsoft.com/fwlink/?LinkId=733558
   "version": "2.0.0",
   "tasks": [
     {
@@ -9,7 +8,8 @@
       "isBackground": true,
       "presentation": {
         "focus": true,
-        "panel": "dedicated"
+        "panel": "dedicated",
+        "close": true
       },
       "group": {
         "kind": "build",
@@ -23,30 +23,29 @@
         "pattern": "$tsc",
         "background": {
           "activeOnStart": true,
-          "beginsPattern": {
-            "regexp": "(.*?)"
-          },
+          "beginsPattern": { "regexp": "(.*?)" },
           "endsPattern": {
-            "regexp": "Application bundle generation complete."
+            "regexp": "Application bundle generation complete\\."
           }
         }
       }
     },
     {
+      "label": "npm: test",
       "type": "npm",
       "script": "test",
       "isBackground": true,
+      "presentation": {
+        "panel": "dedicated",
+        "close": true
+      },
       "problemMatcher": {
         "owner": "typescript",
         "pattern": "$tsc",
         "background": {
           "activeOnStart": true,
-          "beginsPattern": {
-            "regexp": "(.*?)"
-          },
-          "endsPattern": {
-            "regexp": "bundle generation complete"
-          }
+          "beginsPattern": { "regexp": "(.*?)" },
+          "endsPattern": { "regexp": "bundle generation complete" }
         }
       }
     },
@@ -54,8 +53,10 @@
       "label": "stop server",
       "type": "shell",
       "command": "echo ${input:terminate}",
-      "group": {
-        "kind": "none"
+      "presentation": {
+        "reveal": "never",
+        "close": true,
+        "panel": "dedicated"
       },
       "problemMatcher": [],
       "isBackground": false

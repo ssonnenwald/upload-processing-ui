@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, signal, inject } from '@angular/core';
+import { DestroyRef, Service, signal, inject } from '@angular/core';
 import {
   HubConnection,
   HubConnectionBuilder,
@@ -37,7 +37,7 @@ export type ConnectionState =
  * lifecycle. The hub stays open for the life of the application; if no component
  * is using it the cost is one idle WebSocket, which is fine.
  */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class RunStatusHub {
   private readonly destroyRef = inject(DestroyRef);
 

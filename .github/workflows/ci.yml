@@ -1,17 +1,17 @@
 name: CI
 
-# Runs on every pull request, and on direct pushes to main.
-# Change `main` to `master` below if that is your default branch.
+# Lint + unit tests run on both branches. The production build runs only for
+# main (pushes to main and PRs into main), and only after lint and test pass.
 on:
   pull_request:
+    branches: [develop, main]
   push:
-    branches: [main]
+    branches: [develop, main]
 
 jobs:
-  build-test-lint:
-    name: Lint & Test
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
@@ -19,30 +19,65 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          # Match the Node version used locally. Angular 21 needs 20.11+ or
-          # 22.11+. If your machine runs Node 20, change this to '20'.
-          node-version: '24.14.1'
-          # Caches ~/.npm keyed on package-lock.json so installs are fast.
+          # Angular 22 supports Node ^22.22.3 || ^24.15.0 || >=26.0.0.
+          # Node 20 is no longer supported — do not downgrade.
+          node-version: '24.16.0'
           cache: 'npm'
 
       - name: Install dependencies
-        # `npm ci` installs exactly what package-lock.json pins — reproducible,
-        # and faster than `npm install`. Fails if lockfile and package.json
-        # have drifted, which is a useful check in itself.
+        # .npmrc sets legacy-peer-deps=true so npm ci resolves while @ngrx/*
+        # still declares an Angular 21 peer. Remove that line + regenerate the
+        # lockfile once NgRx ships v22.
         run: npm ci
 
       - name: Lint
-        # angular-eslint + typescript-eslint + the NgRx SignalStore rules.
         run: npm run lint
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Test
-        # `ng test` defaults to watch mode; CI must run once and exit with a
-        # status code. The unit-test builder takes --watch=false.
+        # The @angular/build:unit-test (Vitest) builder defaults to watch mode;
+        # CI must run once and exit with a status code.
+        # For coverage, append --coverage (@vitest/coverage-v8 is installed).
         run: npm test -- --watch=false
 
-      # --- Optional: code coverage --------------------------------------------
-      # @vitest/coverage-v8 is already a devDependency from the Vitest
-      # migration. To collect coverage, replace the Test step above with:
-      #   run: npm test -- --watch=false --coverage
-      # To later GATE on a threshold, configure coverage.thresholds in the
-      # Vitest config — the run then fails on its own when coverage drops.
+  build:
+    name: Build (production)
+    runs-on: ubuntu-latest
+    # Run only after lint and test pass — a red lint/test skips the build.
+    needs: [lint, test]
+    # Deploy-branch gate: run only on pushes to main and PRs whose base is main.
+    # On develop, lint + test still run; the prod build is skipped.
+    # To build on develop too, delete this `if:` line.
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        # Production configuration — exercises budgets and prod-only optimization
+        # that the dev build used by `ng test` does not.
+        run: npm run build

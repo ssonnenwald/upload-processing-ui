@@ -277,11 +277,14 @@ describe('RunsApi', () => {
       req.flush(makeUploadResponse());
     });
 
-    it('enables progress reporting on the request', () => {
+    it('enables upload progress reporting on the request', () => {
       api.uploadFile(makeUploadRequest()).subscribe();
 
       const req = uploadRequest();
-      expect(req.request.reportProgress).toBe(true);
+      // Angular v22: reportProgress is deprecated in favor of the
+      // direction-specific flags; uploadFile sets reportUploadProgress.
+      expect(req.request.reportUploadProgress).toBe(true);
+      expect(req.request.reportProgress).toBe(false);
       req.flush(makeUploadResponse());
     });
 

@@ -3,6 +3,11 @@ updates:
   # --- npm dependencies ------------------------------------------------------
   - package-ecosystem: npm
     directory: '/'
+    # Send dependency PRs to develop so they flow through the same
+    # develop -> main path as everything else (lint+test on the develop PR,
+    # production build when develop merges to main). Drop this line to target
+    # the repository's default branch instead.
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -31,16 +36,26 @@ updates:
           - 'vitest'
           - '@vitest/*'
           - 'happy-dom'
-    # TypeScript tracks the Angular-supported range; let major bumps be
-    # deliberate rather than automatic.
+    # Angular 22's compiler-cli pins TypeScript to ">=6.0 <6.1", so a 6.1 MINOR
+    # (not just a 7.0 major) would break the peer range. Restrict Dependabot to
+    # TypeScript PATCH bumps; move the TS line deliberately when you change the
+    # Angular major.
     ignore:
       - dependency-name: 'typescript'
-        update-types: ['version-update:semver-major']
+        update-types:
+          - 'version-update:semver-major'
+          - 'version-update:semver-minor'
 
   # --- GitHub Actions versions ----------------------------------------------
   # Keeps actions/checkout, actions/setup-node, etc. in ci.yml up to date.
   - package-ecosystem: github-actions
     directory: '/'
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
+    # Bundle all action bumps into a single PR.
+    groups:
+      actions:
+        patterns:
+          - '*'

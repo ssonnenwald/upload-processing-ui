@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '@env/environment';
 import type {
@@ -13,10 +13,10 @@ import type {
 /**
  * Typed client for the pipeline-health endpoints exposed by PipelineHealthController.
  *
- * Same pattern as RunsApi / LogsApi: `providedIn: 'root'`, `inject()` for HttpClient,
- * env-based base URL.
+ * Same pattern as RunsApi / LogsApi: root-provided via @Service(), `inject()`
+ * for HttpClient, env-based base URL.
  */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class PipelineHealthApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;

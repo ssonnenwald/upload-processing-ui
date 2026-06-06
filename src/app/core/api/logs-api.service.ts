@@ -1,5 +1,5 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '@env/environment';
 import type {
@@ -13,11 +13,11 @@ import type {
 /**
  * Typed client for the CloudWatch Logs endpoints exposed by LogsController.
  *
- * Mirrors the RunsApi pattern: `providedIn: 'root'`, `inject()` for the
+ * Mirrors the RunsApi pattern: root-provided via @Service(), `inject()` for the
  * HttpClient, and the base URL pulled from the environment rather than
  * hardcoded. Every method maps to one controller action.
  */
-@Injectable({ providedIn: 'root' })
+@Service()
 export class LogsApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;

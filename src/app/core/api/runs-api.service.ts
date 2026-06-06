@@ -4,7 +4,7 @@ import {
   HttpEventType,
   HttpRequest,
 } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '@env/environment';
 import {
@@ -30,7 +30,7 @@ export interface UploadProgress {
   readonly response?: UploadResponse;
 }
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class RunsApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
@@ -84,8 +84,12 @@ export class RunsApi {
 
   /**
    * POST /api/uploads/{function} as multipart/form-data. Returns an Observable
-   * of progress events so the upload component can render a real progress bar
-   * — XHR upload progress events are passed through unchanged.
+   * of progress events so the upload component can render a real progress bar.
+   *
+   * Angular v22 deprecated `reportProgress` in favor of `reportUploadProgress` /
+   * `reportDownloadProgress`. We only care about the upload side here. Note this
+   * requires the XHR backend (withXhr() in app.config.ts) — the Fetch backend
+   * cannot emit upload-progress events.
    */
   uploadFile(req: UploadRequest): Observable<UploadProgress> {
     const form = new FormData();
@@ -99,7 +103,7 @@ export class RunsApi {
       'POST',
       `${this.base}/api/uploads/${encodeURIComponent(req.function)}`,
       form,
-      { reportProgress: true },
+      { reportUploadProgress: true },
     );
 
     return this.http
