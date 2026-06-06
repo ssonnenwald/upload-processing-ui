@@ -5,7 +5,7 @@ import {
   inject,
 } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RunStatusHub } from '@core/signalr/run-status-hub.service';
+import { RunStatusHub } from '@core/signalr/run-status-hub';
 
 /**
  * Live-connection indicator shown in the layout's nav footer.

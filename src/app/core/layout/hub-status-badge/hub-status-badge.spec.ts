@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { signal, WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { HubStatusBadge } from './hub-status-badge';
-import { RunStatusHub } from '@core/signalr/run-status-hub.service';
+import { RunStatusHub } from '@core/signalr/run-status-hub';
 
 /**
  * The hub connection states the badge renders. Mirrors RunStatusHub.state's

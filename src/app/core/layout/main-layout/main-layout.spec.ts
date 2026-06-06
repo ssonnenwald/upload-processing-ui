@@ -3,7 +3,7 @@ import { signal, WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { MainLayout } from './main-layout';
-import { RunStatusHub } from '@core/signalr/run-status-hub.service';
+import { RunStatusHub } from '@core/signalr/run-status-hub';
 
 /** Hub connection states — mirrors RunStatusHub.state's value type. */
 type HubState =

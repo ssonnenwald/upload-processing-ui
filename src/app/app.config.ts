@@ -11,7 +11,7 @@ import {
 } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
-import { errorInterceptor } from '@core/api/error.interceptor';
+import { errorInterceptor } from '@core/api/error-interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
